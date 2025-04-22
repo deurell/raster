@@ -16,11 +16,11 @@ void game_update(float dt)
 {
     G.time += dt;
 
-    vec3 red_pos = { 0.0f, 0.3f * sin(G.time * G.bounce_speed), 0.0f };
-    rgfx_sprite_set_position(G.red_sprite, red_pos);
+    vec3 position = { 0.0f, 0.3f * sin(G.time * G.bounce_speed), 0.0f };
+    rgfx_sprite_set_position(G.red_sprite, position);
 
-    vec2 orbit_vec2 = { 0.5f * cos(G.time * G.orbit_speed), 0.5f * sin(G.time * G.orbit_speed) };
-    vec3 orbit_pos  = { orbit_vec2.x, orbit_vec2.y, 0.0f };
+    vec2 orbit = { 0.5f * cos(G.time * G.orbit_speed), 0.5f * sin(G.time * G.orbit_speed) };
+    vec3 orbit_pos  = { orbit.x, orbit.y, 0.0f };
     rgfx_sprite_set_position(G.green_sprite, orbit_pos);
 
     if (rinput_key_pressed(RINPUT_KEY_ESCAPE))
@@ -67,9 +67,9 @@ int main(void)
 
     G.red_sprite = rgfx_sprite_create(&sprite_desc);
 
-    sprite_desc.position     = (rmath_vec3_t){ 0.5f, 0.0f, 0.0f };
-    sprite_desc.size         = (rmath_vec2_t){ 0.2f, 0.2f };
-    sprite_desc.color        = (rmath_color_t){ 1.0f, 1.0f, 1.0f };
+    sprite_desc.position     = (vec3){ 0.5f, 0.0f, 0.0f };
+    sprite_desc.size         = (vec2){ 0.2f, 0.2f };
+    sprite_desc.color        = (color){ 1.0f, 1.0f, 1.0f };
     sprite_desc.texture_path = "assets/textures/googly-b.png";
     G.green_sprite           = rgfx_sprite_create(&sprite_desc);
 
