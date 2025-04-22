@@ -6,6 +6,12 @@ extern "C"
 #endif
 
 #include <stdbool.h>
+#include "raster_math.h"  // Include our math library
+
+    // Callback function typedefs
+    typedef void (*rapp_update_fn)(float dt);
+    typedef void (*rapp_draw_fn)(void);
+    typedef void (*rapp_cleanup_fn)(void);
 
     // Window config
     typedef struct
@@ -13,18 +19,26 @@ extern "C"
         const char* title;
         int         width;
         int         height;
-    } raster_app_config_t;
+    } rapp_window_desc_t;
+
+    // App descriptor
+    typedef struct
+    {
+        rapp_window_desc_t window;
+        rapp_update_fn update_fn;
+        rapp_draw_fn draw_fn;
+        rapp_cleanup_fn cleanup_fn;
+    } rapp_desc_t;
 
     // App lifecycle
-    bool raster_app_init(const raster_app_config_t* config);
-    void raster_app_shutdown(void);
-    bool raster_app_should_close(void);
-    void raster_app_poll_events(void);
-    void raster_app_present(void);
+    bool rapp_init(const rapp_desc_t* desc);
+    void rapp_run(void);
+    void rapp_quit(void);
+    void rapp_shutdown(void);
 
     // Time functions
-    float raster_app_get_time(void);
-    float raster_app_get_delta_time(void);
+    float rapp_get_time(void);
+    float rapp_get_delta_time(void);
 
 #ifdef __cplusplus
 }

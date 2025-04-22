@@ -6,75 +6,84 @@ extern "C"
 #endif
 
 #include <stdbool.h>
+#include "raster_math.h" // Include our math library
 
     // Key codes (matching GLFW for simplicity)
     typedef enum
     {
-        RASTER_KEY_UNKNOWN    = -1,
-        RASTER_KEY_SPACE      = 32,
-        RASTER_KEY_APOSTROPHE = 39,
-        RASTER_KEY_COMMA      = 44,
-        RASTER_KEY_MINUS      = 45,
-        RASTER_KEY_PERIOD     = 46,
-        RASTER_KEY_SLASH      = 47,
-        RASTER_KEY_0          = 48,
-        RASTER_KEY_1          = 49,
-        RASTER_KEY_2          = 50,
-        RASTER_KEY_3          = 51,
-        RASTER_KEY_4          = 52,
-        RASTER_KEY_5          = 53,
-        RASTER_KEY_6          = 54,
-        RASTER_KEY_7          = 55,
-        RASTER_KEY_8          = 56,
-        RASTER_KEY_9          = 57,
-        RASTER_KEY_SEMICOLON  = 59,
-        RASTER_KEY_EQUAL      = 61,
-        RASTER_KEY_A          = 65,
-        RASTER_KEY_B          = 66,
-        RASTER_KEY_C          = 67,
-        RASTER_KEY_D          = 68,
-        RASTER_KEY_E          = 69,
-        RASTER_KEY_F          = 70,
-        RASTER_KEY_G          = 71,
-        RASTER_KEY_H          = 72,
-        RASTER_KEY_I          = 73,
-        RASTER_KEY_J          = 74,
-        RASTER_KEY_K          = 75,
-        RASTER_KEY_L          = 76,
-        RASTER_KEY_M          = 77,
-        RASTER_KEY_N          = 78,
-        RASTER_KEY_O          = 79,
-        RASTER_KEY_P          = 80,
-        RASTER_KEY_Q          = 81,
-        RASTER_KEY_R          = 82,
-        RASTER_KEY_S          = 83,
-        RASTER_KEY_T          = 84,
-        RASTER_KEY_U          = 85,
-        RASTER_KEY_V          = 86,
-        RASTER_KEY_W          = 87,
-        RASTER_KEY_X          = 88,
-        RASTER_KEY_Y          = 89,
-        RASTER_KEY_Z          = 90,
-        RASTER_KEY_ESCAPE     = 256,
-        RASTER_KEY_ENTER      = 257,
-        RASTER_KEY_TAB        = 258,
-        RASTER_KEY_BACKSPACE  = 259,
-        RASTER_KEY_RIGHT      = 262,
-        RASTER_KEY_LEFT       = 263,
-        RASTER_KEY_DOWN       = 264,
-        RASTER_KEY_UP         = 265,
-    } raster_key_t;
+        RINPUT_KEY_UNKNOWN    = -1,
+        RINPUT_KEY_SPACE      = 32,
+        RINPUT_KEY_APOSTROPHE = 39,
+        RINPUT_KEY_COMMA      = 44,
+        RINPUT_KEY_MINUS      = 45,
+        RINPUT_KEY_PERIOD     = 46,
+        RINPUT_KEY_SLASH      = 47,
+        RINPUT_KEY_0          = 48,
+        RINPUT_KEY_1          = 49,
+        RINPUT_KEY_2          = 50,
+        RINPUT_KEY_3          = 51,
+        RINPUT_KEY_4          = 52,
+        RINPUT_KEY_5          = 53,
+        RINPUT_KEY_6          = 54,
+        RINPUT_KEY_7          = 55,
+        RINPUT_KEY_8          = 56,
+        RINPUT_KEY_9          = 57,
+        RINPUT_KEY_SEMICOLON  = 59,
+        RINPUT_KEY_EQUAL      = 61,
+        RINPUT_KEY_A          = 65,
+        RINPUT_KEY_B          = 66,
+        RINPUT_KEY_C          = 67,
+        RINPUT_KEY_D          = 68,
+        RINPUT_KEY_E          = 69,
+        RINPUT_KEY_F          = 70,
+        RINPUT_KEY_G          = 71,
+        RINPUT_KEY_H          = 72,
+        RINPUT_KEY_I          = 73,
+        RINPUT_KEY_J          = 74,
+        RINPUT_KEY_K          = 75,
+        RINPUT_KEY_L          = 76,
+        RINPUT_KEY_M          = 77,
+        RINPUT_KEY_N          = 78,
+        RINPUT_KEY_O          = 79,
+        RINPUT_KEY_P          = 80,
+        RINPUT_KEY_Q          = 81,
+        RINPUT_KEY_R          = 82,
+        RINPUT_KEY_S          = 83,
+        RINPUT_KEY_T          = 84,
+        RINPUT_KEY_U          = 85,
+        RINPUT_KEY_V          = 86,
+        RINPUT_KEY_W          = 87,
+        RINPUT_KEY_X          = 88,
+        RINPUT_KEY_Y          = 89,
+        RINPUT_KEY_Z          = 90,
+        RINPUT_KEY_ESCAPE     = 256,
+        RINPUT_KEY_ENTER      = 257,
+        RINPUT_KEY_TAB        = 258,
+        RINPUT_KEY_BACKSPACE  = 259,
+        RINPUT_KEY_RIGHT      = 262,
+        RINPUT_KEY_LEFT       = 263,
+        RINPUT_KEY_DOWN       = 264,
+        RINPUT_KEY_UP         = 265,
+    } rinput_key_t;
+
+    // Mouse buttons
+    typedef enum {
+        RINPUT_MOUSE_BUTTON_LEFT   = 0,
+        RINPUT_MOUSE_BUTTON_RIGHT  = 1,
+        RINPUT_MOUSE_BUTTON_MIDDLE = 2
+    } rinput_mouse_button_t;
 
     // Keyboard input
-    bool raster_input_key_pressed(raster_key_t key);
-    bool raster_input_key_down(raster_key_t key);
-    bool raster_input_key_released(raster_key_t key);
+    bool rinput_key_pressed(rinput_key_t key);
+    bool rinput_key_down(rinput_key_t key);
+    bool rinput_key_released(rinput_key_t key);
 
     // Mouse input
-    void raster_input_mouse_position(float* x, float* y);
-    bool raster_input_mouse_button_down(int button);
-    bool raster_input_mouse_button_pressed(int button);
-    bool raster_input_mouse_button_released(int button);
+    rmath_vec2_t rinput_mouse_position(void);
+    bool rinput_mouse_button_down(rinput_mouse_button_t button);
+    bool rinput_mouse_button_pressed(rinput_mouse_button_t button);
+    bool rinput_mouse_button_released(rinput_mouse_button_t button);
+    void rinput_debug_print_pressed_keys(void);
 
 #ifdef __cplusplus
 }

@@ -1,11 +1,12 @@
 #include "raster/raster_gfx.h"
+#include "raster/raster_math.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <stdlib.h>
 #include <stdio.h>
 
 // Internal sprite structure
-struct raster_sprite
+struct rgfx_sprite
 {
     unsigned int VAO;
     unsigned int VBO;
@@ -14,6 +15,7 @@ struct raster_sprite
     float        x, y;
     float        width, height;
     float        r, g, b;
+    int          z_order;
 };
 
 // Shader source code
@@ -84,7 +86,7 @@ static unsigned int create_shader_program(const char* vertexSource, const char* 
     return shaderProgram;
 }
 
-bool raster_gfx_init(void)
+bool rgfx_init(void)
 {
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
@@ -98,33 +100,43 @@ bool raster_gfx_init(void)
     return true;
 }
 
-void raster_gfx_clear(float r, float g, float b)
+void rgfx_clear(float r, float g, float b)
 {
     glClearColor(r, g, b, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-void raster_gfx_shutdown(void)
+void rgfx_clear_color(rmath_color_t color)
+{
+    rgfx_clear(color.r, color.g, color.b);
+}
+
+void rgfx_shutdown(void)
 {
     // Nothing to do for now
 }
 
-raster_sprite_t* raster_sprite_create(float x, float y, float width, float height, float r, float g, float b)
+// Descriptor-based sprite creation
+rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
 {
-    raster_sprite_t* sprite = (raster_sprite_t*)malloc(sizeof(raster_sprite_t));
+    if (!desc)
+        return NULL;
+
+    rgfx_sprite_t* sprite = (rgfx_sprite_t*)malloc(sizeof(rgfx_sprite_t));
     if (!sprite)
     {
         return NULL;
     }
 
-    // Initialize sprite data
-    sprite->x      = x;
-    sprite->y      = y;
-    sprite->width  = width;
-    sprite->height = height;
-    sprite->r      = r;
-    sprite->g      = g;
-    sprite->b      = b;
+    // Initialize sprite data from descriptor
+    sprite->x       = desc->position.x;
+    sprite->y       = desc->position.y;
+    sprite->width   = desc->size.x;
+    sprite->height  = desc->size.y;
+    sprite->r       = desc->color.r;
+    sprite->g       = desc->color.g;
+    sprite->b       = desc->color.b;
+    sprite->z_order = desc->z_order;
 
     // Create shader program
     sprite->shaderProgram = create_shader_program(s_vertex_shader_src, s_fragment_shader_src);
@@ -175,7 +187,7 @@ raster_sprite_t* raster_sprite_create(float x, float y, float width, float heigh
     return sprite;
 }
 
-void raster_sprite_destroy(raster_sprite_t* sprite)
+void rgfx_sprite_destroy(rgfx_sprite_t* sprite)
 {
     if (!sprite)
     {
@@ -192,7 +204,7 @@ void raster_sprite_destroy(raster_sprite_t* sprite)
     free(sprite);
 }
 
-void raster_sprite_draw(raster_sprite_t* sprite)
+void rgfx_sprite_draw(rgfx_sprite_t* sprite)
 {
     if (!sprite)
     {
@@ -218,7 +230,7 @@ void raster_sprite_draw(raster_sprite_t* sprite)
 }
 
 // Sprite properties setters and getters
-void raster_sprite_set_position(raster_sprite_t* sprite, float x, float y)
+void rgfx_sprite_set_position(rgfx_sprite_t* sprite, float x, float y)
 {
     if (sprite)
     {
@@ -227,7 +239,7 @@ void raster_sprite_set_position(raster_sprite_t* sprite, float x, float y)
     }
 }
 
-void raster_sprite_set_size(raster_sprite_t* sprite, float width, float height)
+void rgfx_sprite_set_size(rgfx_sprite_t* sprite, float width, float height)
 {
     if (sprite)
     {
@@ -236,7 +248,7 @@ void raster_sprite_set_size(raster_sprite_t* sprite, float width, float height)
     }
 }
 
-void raster_sprite_set_color(raster_sprite_t* sprite, float r, float g, float b)
+void rgfx_sprite_set_color(rgfx_sprite_t* sprite, float r, float g, float b)
 {
     if (sprite)
     {
@@ -246,32 +258,77 @@ void raster_sprite_set_color(raster_sprite_t* sprite, float r, float g, float b)
     }
 }
 
-float raster_sprite_get_x(raster_sprite_t* sprite)
+void rgfx_sprite_set_position_vec2(rgfx_sprite_t* sprite, rmath_vec2_t position)
 {
-    return sprite ? sprite->x : 0.0f;
-}
-
-float raster_sprite_get_y(raster_sprite_t* sprite)
-{
-    return sprite ? sprite->y : 0.0f;
-}
-
-float raster_sprite_get_width(raster_sprite_t* sprite)
-{
-    return sprite ? sprite->width : 0.0f;
-}
-
-float raster_sprite_get_height(raster_sprite_t* sprite)
-{
-    return sprite ? sprite->height : 0.0f;
-}
-
-void raster_sprite_get_color(raster_sprite_t* sprite, float* r, float* g, float* b)
-{
-    if (sprite && r && g && b)
+    if (sprite)
     {
-        *r = sprite->r;
-        *g = sprite->g;
-        *b = sprite->b;
+        sprite->x = position.x;
+        sprite->y = position.y;
     }
+}
+
+void rgfx_sprite_set_size_vec2(rgfx_sprite_t* sprite, rmath_vec2_t size)
+{
+    if (sprite)
+    {
+        sprite->width  = size.x;
+        sprite->height = size.y;
+    }
+}
+
+void rgfx_sprite_set_color_struct(rgfx_sprite_t* sprite, rmath_color_t color)
+{
+    if (sprite)
+    {
+        sprite->r = color.r;
+        sprite->g = color.g;
+        sprite->b = color.b;
+    }
+}
+
+void rgfx_sprite_set_z_order(rgfx_sprite_t* sprite, int z_order)
+{
+    if (sprite)
+    {
+        sprite->z_order = z_order;
+    }
+}
+
+rmath_vec2_t rgfx_sprite_get_position(rgfx_sprite_t* sprite)
+{
+    rmath_vec2_t result = {0};
+    if (sprite)
+    {
+        result.x = sprite->x;
+        result.y = sprite->y;
+    }
+    return result;
+}
+
+rmath_vec2_t rgfx_sprite_get_size(rgfx_sprite_t* sprite)
+{
+    rmath_vec2_t result = {0};
+    if (sprite)
+    {
+        result.x = sprite->width;
+        result.y = sprite->height;
+    }
+    return result;
+}
+
+rmath_color_t rgfx_sprite_get_color(rgfx_sprite_t* sprite)
+{
+    rmath_color_t result = {0};
+    if (sprite)
+    {
+        result.r = sprite->r;
+        result.g = sprite->g;
+        result.b = sprite->b;
+    }
+    return result;
+}
+
+int rgfx_sprite_get_z_order(rgfx_sprite_t* sprite)
+{
+    return sprite ? sprite->z_order : 0;
 }

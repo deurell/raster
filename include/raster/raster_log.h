@@ -5,26 +5,29 @@ extern "C"
 {
 #endif
 
-    typedef enum
-    {
-        RASTER_LOG_LEVEL_TRACE,
-        RASTER_LOG_LEVEL_DEBUG,
-        RASTER_LOG_LEVEL_INFO,
-        RASTER_LOG_LEVEL_WARN,
-        RASTER_LOG_LEVEL_ERROR,
-        RASTER_LOG_LEVEL_FATAL
-    } raster_log_level_t;
+#include <stdarg.h> // Include for va_list, va_start, va_end
+
+    // Log levels
+    typedef enum {
+        RLOG_LEVEL_TRACE,
+        RLOG_LEVEL_DEBUG,
+        RLOG_LEVEL_INFO,
+        RLOG_LEVEL_WARNING,
+        RLOG_LEVEL_ERROR,
+        RLOG_LEVEL_FATAL
+    } rlog_level_t;
 
     // Set global log level
-    void raster_log_set_level(raster_log_level_t level);
+    void rlog_set_level(rlog_level_t level);
 
-    // Core logging functions
-    void raster_log_trace(const char* fmt, ...);
-    void raster_log_debug(const char* fmt, ...);
-    void raster_log_info(const char* fmt, ...);
-    void raster_log_warn(const char* fmt, ...);
-    void raster_log_error(const char* fmt, ...);
-    void raster_log_fatal(const char* fmt, ...);
+    // Log functions
+    void rlog(rlog_level_t level, const char* fmt, ...);
+    void rlog_trace(const char* fmt, ...);
+    void rlog_debug(const char* fmt, ...);
+    void rlog_info(const char* fmt, ...);
+    void rlog_warning(const char* fmt, ...);
+    void rlog_error(const char* fmt, ...);
+    void rlog_fatal(const char* fmt, ...);
 
 #ifdef __cplusplus
 }

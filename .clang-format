@@ -15,4 +15,13 @@ AlignConsecutiveAssignments: true
 AlignConsecutiveDeclarations: true
 AlignTrailingComments: true
 SpacesBeforeTrailingComments: 1
+BinPackArguments: false
+BinPackParameters: false
+BreakConstructorInitializers: BeforeColon
+BreakInheritanceList: BeforeColon
+PackConstructorInitializers: Never
+Cpp11BracedListStyle: false
+# Forces struct initializers to have one element per line
+AllowShortEnumsOnASingleLine: false
+AlwaysBreakAfterReturnType: None
 ---
