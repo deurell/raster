@@ -12,9 +12,9 @@ struct rgfx_sprite
     unsigned int VBO;
     unsigned int EBO;
     unsigned int shaderProgram;
-    float        x, y;
-    float        width, height;
-    float        r, g, b;
+    rmath_vec3_t position;    // Using vec3 instead of separate x, y
+    rmath_vec2_t size;        // Using vec2 for width and height
+    rmath_color_t color;      // Using color struct instead of separate r, g, b
     int          z_order;
 };
 
@@ -129,14 +129,9 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     }
 
     // Initialize sprite data from descriptor
-    sprite->x       = desc->position.x;
-    sprite->y       = desc->position.y;
-    sprite->width   = desc->size.x;
-    sprite->height  = desc->size.y;
-    sprite->r       = desc->color.r;
-    sprite->g       = desc->color.g;
-    sprite->b       = desc->color.b;
-    sprite->z_order = desc->z_order;
+    sprite->position = desc->position;
+    sprite->size     = desc->size;
+    sprite->color    = desc->color;
 
     // Create shader program
     sprite->shaderProgram = create_shader_program(s_vertex_shader_src, s_fragment_shader_src);
@@ -215,9 +210,9 @@ void rgfx_sprite_draw(rgfx_sprite_t* sprite)
     glUseProgram(sprite->shaderProgram);
 
     // Set uniforms for position, size, and color
-    glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uPosition"), sprite->x, sprite->y);
-    glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uSize"), sprite->width, sprite->height);
-    glUniform3f(glGetUniformLocation(sprite->shaderProgram, "uColor"), sprite->r, sprite->g, sprite->b);
+    glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uPosition"), sprite->position.x, sprite->position.y);
+    glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uSize"), sprite->size.x, sprite->size.y);
+    glUniform3f(glGetUniformLocation(sprite->shaderProgram, "uColor"), sprite->color.r, sprite->color.g, sprite->color.b);
 
     // Bind the vertex array
     glBindVertexArray(sprite->VAO);
@@ -230,40 +225,11 @@ void rgfx_sprite_draw(rgfx_sprite_t* sprite)
 }
 
 // Sprite properties setters and getters
-void rgfx_sprite_set_position(rgfx_sprite_t* sprite, float x, float y)
+void rgfx_sprite_set_position_vec3(rgfx_sprite_t* sprite, rmath_vec3_t position)
 {
     if (sprite)
     {
-        sprite->x = x;
-        sprite->y = y;
-    }
-}
-
-void rgfx_sprite_set_size(rgfx_sprite_t* sprite, float width, float height)
-{
-    if (sprite)
-    {
-        sprite->width  = width;
-        sprite->height = height;
-    }
-}
-
-void rgfx_sprite_set_color(rgfx_sprite_t* sprite, float r, float g, float b)
-{
-    if (sprite)
-    {
-        sprite->r = r;
-        sprite->g = g;
-        sprite->b = b;
-    }
-}
-
-void rgfx_sprite_set_position_vec2(rgfx_sprite_t* sprite, rmath_vec2_t position)
-{
-    if (sprite)
-    {
-        sprite->x = position.x;
-        sprite->y = position.y;
+        sprite->position = position;
     }
 }
 
@@ -271,8 +237,7 @@ void rgfx_sprite_set_size_vec2(rgfx_sprite_t* sprite, rmath_vec2_t size)
 {
     if (sprite)
     {
-        sprite->width  = size.x;
-        sprite->height = size.y;
+        sprite->size = size;
     }
 }
 
@@ -280,9 +245,7 @@ void rgfx_sprite_set_color_struct(rgfx_sprite_t* sprite, rmath_color_t color)
 {
     if (sprite)
     {
-        sprite->r = color.r;
-        sprite->g = color.g;
-        sprite->b = color.b;
+        sprite->color = color;
     }
 }
 
@@ -294,13 +257,12 @@ void rgfx_sprite_set_z_order(rgfx_sprite_t* sprite, int z_order)
     }
 }
 
-rmath_vec2_t rgfx_sprite_get_position(rgfx_sprite_t* sprite)
+rmath_vec3_t rgfx_sprite_get_position_vec3(rgfx_sprite_t* sprite)
 {
-    rmath_vec2_t result = {0};
+    rmath_vec3_t result = {0};
     if (sprite)
     {
-        result.x = sprite->x;
-        result.y = sprite->y;
+        result = sprite->position;
     }
     return result;
 }
@@ -310,8 +272,7 @@ rmath_vec2_t rgfx_sprite_get_size(rgfx_sprite_t* sprite)
     rmath_vec2_t result = {0};
     if (sprite)
     {
-        result.x = sprite->width;
-        result.y = sprite->height;
+        result = sprite->size;
     }
     return result;
 }
@@ -321,9 +282,7 @@ rmath_color_t rgfx_sprite_get_color(rgfx_sprite_t* sprite)
     rmath_color_t result = {0};
     if (sprite)
     {
-        result.r = sprite->r;
-        result.g = sprite->g;
-        result.b = sprite->b;
+        result = sprite->color;
     }
     return result;
 }

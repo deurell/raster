@@ -15,15 +15,15 @@ static struct
     float       currentTime;
     float       lastTime;
     float       deltaTime;
-    
+
     // Callbacks
-    rapp_update_fn update_callback;
-    rapp_draw_fn draw_callback;
+    rapp_update_fn  update_callback;
+    rapp_draw_fn    draw_callback;
     rapp_cleanup_fn cleanup_callback;
-    
+
     // Quit flag
     bool should_quit;
-} app_state = {0};
+} app_state = { 0 };
 
 // Expose window handle to input system
 GLFWwindow* _rapp_get_window(void)
@@ -47,12 +47,7 @@ bool rapp_init(const rapp_desc_t* desc)
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
     // Create window
-    app_state.window = glfwCreateWindow(
-        desc->window.width, 
-        desc->window.height, 
-        desc->window.title, 
-        NULL, NULL
-    );
+    app_state.window = glfwCreateWindow(desc->window.width, desc->window.height, desc->window.title, NULL, NULL);
 
     if (!app_state.window)
     {
@@ -81,12 +76,12 @@ bool rapp_init(const rapp_desc_t* desc)
     app_state.currentTime = glfwGetTime();
     app_state.lastTime    = app_state.currentTime;
     app_state.deltaTime   = 0.0f;
-    
+
     // Store callbacks
-    app_state.update_callback = desc->update_fn;
-    app_state.draw_callback = desc->draw_fn;
+    app_state.update_callback  = desc->update_fn;
+    app_state.draw_callback    = desc->draw_fn;
     app_state.cleanup_callback = desc->cleanup_fn;
-    
+
     // Initialize quit flag
     app_state.should_quit = false;
 
@@ -103,38 +98,30 @@ void rapp_run(void)
         app_state.currentTime = glfwGetTime();
         app_state.deltaTime   = app_state.currentTime - app_state.lastTime;
 
-        // First update input state (copy current to previous)
         _rinput_update();
-        
-        // Then poll for new events (updates current state)
         glfwPollEvents();
-        
-        // Now call update callback
+
         if (app_state.update_callback)
         {
             app_state.update_callback(app_state.deltaTime);
         }
-        
-        // Call draw callback if registered
+
         if (app_state.draw_callback)
         {
             app_state.draw_callback();
         }
-        
-        // Swap buffers
+
         if (app_state.window)
         {
             glfwSwapBuffers(app_state.window);
         }
     }
-    
-    // Call cleanup callback if registered
+
     if (app_state.cleanup_callback)
     {
         app_state.cleanup_callback();
     }
-    
-    // Shutdown the app
+
     rapp_shutdown();
 }
 

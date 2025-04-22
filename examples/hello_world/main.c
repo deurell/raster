@@ -1,4 +1,4 @@
-#include "raster/raster.h" // Use the unified header
+#include "raster/raster.h"
 
 // Game state
 typedef struct
@@ -18,13 +18,14 @@ void game_update(float dt)
     G.time += dt;
 
     // Update sprite positions for animation
-    rgfx_sprite_set_position(G.red_sprite, 0.0f, 0.3f * sin(G.time * G.bounce_speed));
+    rmath_vec3_t red_pos = { 0.0f, 0.3f * sin(G.time * G.bounce_speed), 0.0f };
+    rgfx_sprite_set_position_vec3(G.red_sprite, red_pos);
 
     // Use a vector-based position setter for the green sprite
-    rmath_vec2_t orbit_pos = { 0.5f * cos(G.time * G.orbit_speed), 0.5f * sin(G.time * G.orbit_speed) };
-    rgfx_sprite_set_position_vec2(G.green_sprite, orbit_pos);
+    rmath_vec2_t orbit_vec2 = { 0.5f * cos(G.time * G.orbit_speed), 0.5f * sin(G.time * G.orbit_speed) };
+    rmath_vec3_t orbit_pos  = { orbit_vec2.x, orbit_vec2.y, 0.0f };
+    rgfx_sprite_set_position_vec3(G.green_sprite, orbit_pos);
 
-    rinput_debug_print_pressed_keys();
     // Check for input using the shorter prefix
     if (rinput_key_pressed(RINPUT_KEY_ESCAPE))
     {
@@ -65,17 +66,17 @@ int main(void)
         return -1;
     }
 
-    rgfx_sprite_desc_t sprite_desc = {
-        .position = { 0.0f, 0.0f }, .size = { 0.3f, 0.3f }, .color = { 1.0f, 0.0f, 0.0f }, .z_order = 0
-    };
+    rgfx_sprite_desc_t sprite_desc = { .position = { 0.0f, 0.0f, 0.0f },
+                                       .size     = { 0.3f, 0.3f },
+                                       .color    = { 1.0f, 0.0f, 0.0f } };
 
     G.red_sprite = rgfx_sprite_create(&sprite_desc);
 
     // Modify the descriptor for the green sprite
-    sprite_desc.position.x = 0.5f;
-    sprite_desc.size       = (rmath_vec2_t){ 0.2f, 0.2f };
-    sprite_desc.color      = (rmath_color_t){ 0.0f, 1.0f, 0.0f };
-    G.green_sprite         = rgfx_sprite_create(&sprite_desc);
+    sprite_desc.position = (rmath_vec3_t){ 0.5f, 0.0f, 0.0f };
+    sprite_desc.size     = (rmath_vec2_t){ 0.2f, 0.2f };
+    sprite_desc.color    = (rmath_color_t){ 0.0f, 1.0f, 0.0f };
+    G.green_sprite       = rgfx_sprite_create(&sprite_desc);
 
     // Initialize game state
     G.time         = 0.0f;

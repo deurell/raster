@@ -22,10 +22,9 @@ extern "C"
     // Sprite descriptor
     typedef struct
     {
-        rmath_vec2_t position;
+        rmath_vec3_t position;
         rmath_vec2_t size;
         rmath_color_t color;
-        int z_order;  // Optional depth ordering
     } rgfx_sprite_desc_t;
 
     // Sprite API
@@ -34,16 +33,13 @@ extern "C"
     void rgfx_sprite_draw(rgfx_sprite_t* sprite);
 
     // Sprite properties
-    void rgfx_sprite_set_position(rgfx_sprite_t* sprite, float x, float y);
-    void rgfx_sprite_set_position_vec2(rgfx_sprite_t* sprite, rmath_vec2_t position);
-    void rgfx_sprite_set_size(rgfx_sprite_t* sprite, float width, float height);
+    void rgfx_sprite_set_position_vec3(rgfx_sprite_t* sprite, rmath_vec3_t position);
     void rgfx_sprite_set_size_vec2(rgfx_sprite_t* sprite, rmath_vec2_t size);
-    void rgfx_sprite_set_color(rgfx_sprite_t* sprite, float r, float g, float b);
     void rgfx_sprite_set_color_struct(rgfx_sprite_t* sprite, rmath_color_t color);
     void rgfx_sprite_set_z_order(rgfx_sprite_t* sprite, int z_order);
 
     // Getters
-    rmath_vec2_t rgfx_sprite_get_position(rgfx_sprite_t* sprite);
+    rmath_vec3_t rgfx_sprite_get_position_vec3(rgfx_sprite_t* sprite);
     rmath_vec2_t rgfx_sprite_get_size(rgfx_sprite_t* sprite);
     rmath_color_t rgfx_sprite_get_color(rgfx_sprite_t* sprite);
     int rgfx_sprite_get_z_order(rgfx_sprite_t* sprite);

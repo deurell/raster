@@ -1,4 +1,3 @@
-// filepath: /Users/mikael/source/raster/include/raster/raster_math.h
 #pragma once
 
 /*
