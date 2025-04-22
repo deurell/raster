@@ -52,7 +52,7 @@ char* rgfx_load_shader_source(const char* filepath)
     FILE* file = fopen(filepath, "rb");
     if (!file)
     {
-        printf("ERROR: Failed to open shader file: %s\n", filepath);
+        rlog_error("Failed to open shader file: %s\n", filepath);
         return NULL;
     }
 
@@ -66,7 +66,7 @@ char* rgfx_load_shader_source(const char* filepath)
     if (!source)
     {
         fclose(file);
-        printf("ERROR: Failed to allocate memory for shader source\n");
+        rlog_error("Failed to allocate memory for shader source\n");
         return NULL;
     }
 
@@ -77,7 +77,7 @@ char* rgfx_load_shader_source(const char* filepath)
     if (bytesRead < (size_t)size)
     {
         free(source);
-        printf("ERROR: Failed to read shader file: %s\n", filepath);
+        rlog_error("Failed to read shader file: %s\n", filepath);
         return NULL;
     }
 
@@ -124,7 +124,7 @@ static unsigned int _create_shader_program(const char* vertexSource, const char*
     if (!success)
     {
         glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-        printf("ERROR: Shader program linking failed\n%s\n", infoLog);
+        rlog_error("Shader program linking failed\n%s\n", infoLog);
         return 0;
     }
 
@@ -497,7 +497,7 @@ unsigned int rgfx_load_texture(const char* filepath)
     }
     else
     {
-        printf("ERROR: Failed to load texture: %s\n", filepath);
+        rlog_error("Failed to load texture: %s\n", filepath);
         glDeleteTextures(1, &textureID);
         return 0;
     }
