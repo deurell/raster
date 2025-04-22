@@ -16,11 +16,11 @@ struct rgfx_sprite
     unsigned int VBO;
     unsigned int EBO;
     unsigned int shaderProgram;
-    unsigned int textureID;      // Texture ID for OpenGL
-    bool hasTexture;             // Flag to indicate if sprite has a texture
+    unsigned int textureID;
+    bool hasTexture;
     rmath_vec3_t position;
     rmath_vec2_t size;
-    rmath_color_t color;      // Using color struct instead of separate r, g, b
+    rmath_color_t color;
 };
 
 // Default shader source code
@@ -390,7 +390,7 @@ void rgfx_sprite_draw(rgfx_sprite_t* sprite)
 }
 
 // Sprite properties setters and getters
-void rgfx_sprite_set_position_vec3(rgfx_sprite_t* sprite, rmath_vec3_t position)
+void rgfx_sprite_set_position(rgfx_sprite_t* sprite, rmath_vec3_t position)
 {
     if (sprite)
     {
@@ -398,7 +398,7 @@ void rgfx_sprite_set_position_vec3(rgfx_sprite_t* sprite, rmath_vec3_t position)
     }
 }
 
-void rgfx_sprite_set_size_vec2(rgfx_sprite_t* sprite, rmath_vec2_t size)
+void rgfx_sprite_set_size(rgfx_sprite_t* sprite, rmath_vec2_t size)
 {
     if (sprite)
     {
@@ -406,7 +406,7 @@ void rgfx_sprite_set_size_vec2(rgfx_sprite_t* sprite, rmath_vec2_t size)
     }
 }
 
-void rgfx_sprite_set_color_struct(rgfx_sprite_t* sprite, rmath_color_t color)
+void rgfx_sprite_set_color(rgfx_sprite_t* sprite, rmath_color_t color)
 {
     if (sprite)
     {

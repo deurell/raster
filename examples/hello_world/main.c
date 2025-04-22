@@ -20,12 +20,12 @@ void game_update(float dt)
 
     // Update sprite positions for animation
     rmath_vec3_t red_pos = { 0.0f, 0.3f * sin(G.time * G.bounce_speed), 0.0f };
-    rgfx_sprite_set_position_vec3(G.red_sprite, red_pos);
+    rgfx_sprite_set_position(G.red_sprite, red_pos);
 
     // Use a vector-based position setter for the green sprite
     rmath_vec2_t orbit_vec2 = { 0.5f * cos(G.time * G.orbit_speed), 0.5f * sin(G.time * G.orbit_speed) };
     rmath_vec3_t orbit_pos  = { orbit_vec2.x, orbit_vec2.y, 0.0f };
-    rgfx_sprite_set_position_vec3(G.green_sprite, orbit_pos);
+    rgfx_sprite_set_position(G.green_sprite, orbit_pos);
 
     // Check for input using the shorter prefix
     if (rinput_key_pressed(RINPUT_KEY_ESCAPE))
@@ -86,7 +86,6 @@ int main(void)
     G.bounce_speed = 2.2f;
     G.orbit_speed  = 1.2f;
 
-    // Run the app (handles the main loop internally)
     rapp_run();
 
     return 0;

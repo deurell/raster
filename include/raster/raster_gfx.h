@@ -44,10 +44,9 @@ extern "C"
     void rgfx_sprite_draw(rgfx_sprite_t* sprite);
 
     // Sprite properties
-    void rgfx_sprite_set_position_vec3(rgfx_sprite_t* sprite, rmath_vec3_t position);
-    void rgfx_sprite_set_size_vec2(rgfx_sprite_t* sprite, rmath_vec2_t size);
-    void rgfx_sprite_set_color_struct(rgfx_sprite_t* sprite, rmath_color_t color);
-    void rgfx_sprite_set_z_order(rgfx_sprite_t* sprite, int z_order);
+    void rgfx_sprite_set_position(rgfx_sprite_t* sprite, rmath_vec3_t position);
+    void rgfx_sprite_set_size(rgfx_sprite_t* sprite, rmath_vec2_t size);
+    void rgfx_sprite_set_color(rgfx_sprite_t* sprite, rmath_color_t color);
     void rgfx_sprite_set_texture(rgfx_sprite_t* sprite, unsigned int textureID);
 
     // Getters
