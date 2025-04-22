@@ -19,12 +19,12 @@ void game_update(float dt)
     G.time += dt;
 
     // Update sprite positions for animation
-    rmath_vec3_t red_pos = { 0.0f, 0.3f * sin(G.time * G.bounce_speed), 0.0f };
+    vec3 red_pos = { 0.0f, 0.3f * sin(G.time * G.bounce_speed), 0.0f };
     rgfx_sprite_set_position(G.red_sprite, red_pos);
 
     // Use a vector-based position setter for the green sprite
-    rmath_vec2_t orbit_vec2 = { 0.5f * cos(G.time * G.orbit_speed), 0.5f * sin(G.time * G.orbit_speed) };
-    rmath_vec3_t orbit_pos  = { orbit_vec2.x, orbit_vec2.y, 0.0f };
+    vec2 orbit_vec2 = { 0.5f * cos(G.time * G.orbit_speed), 0.5f * sin(G.time * G.orbit_speed) };
+    vec3 orbit_pos  = { orbit_vec2.x, orbit_vec2.y, 0.0f };
     rgfx_sprite_set_position(G.green_sprite, orbit_pos);
 
     // Check for input using the shorter prefix
@@ -37,8 +37,7 @@ void game_update(float dt)
 // Draw callback
 void game_draw(void)
 {
-    // Clear with a color struct
-    rmath_color_t bg_color = { 0.13f, 0.56f, 0.88f };
+    color bg_color = { 0.13f, 0.56f, 0.88f };
     rgfx_clear_color(bg_color);
 
     rgfx_sprite_draw(G.red_sprite);
@@ -48,6 +47,7 @@ void game_draw(void)
 // Cleanup callback
 void game_cleanup(void)
 {
+    rlog_info("Cleaning up game resources");
     rgfx_sprite_destroy(G.red_sprite);
     rgfx_sprite_destroy(G.green_sprite);
 }
@@ -65,7 +65,7 @@ int main(void)
         rlog_error("Failed to initialize the raster engine");
         return -1;
     }
-
+    rlog_info("Raster engine initialized successfully");
     rgfx_sprite_desc_t sprite_desc = { .position             = { 0.0f, 0.0f, 0.0f },
                                        .size                 = { 0.5f, 0.5f },
                                        .color                = { 1.0f, 1.0f, 1.0f },

@@ -23,6 +23,11 @@ extern "C"
 #include "raster_input.h"
 #include "raster_log.h"
 
+typedef rmath_vec2_t vec2;
+typedef rmath_vec3_t vec3;
+typedef rmath_vec4_t vec4;
+typedef rmath_color_t color;
+
 #ifdef __cplusplus
 }
 #endif
