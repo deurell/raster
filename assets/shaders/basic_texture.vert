@@ -11,5 +11,5 @@ void main()
 {
     vec2 pos = aPos * uSize + uPosition;
     gl_Position = vec4(pos, 0.0, 1.0);
-    TexCoord = aTexCoord;  // Use the provided texture coordinates directly
+    TexCoord = aTexCoord;
 }

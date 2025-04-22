@@ -41,7 +41,6 @@ void game_draw(void)
     rmath_color_t bg_color = { 0.13f, 0.56f, 0.88f };
     rgfx_clear_color(bg_color);
 
-    // Draw sprites
     rgfx_sprite_draw(G.red_sprite);
     rgfx_sprite_draw(G.green_sprite);
 }
@@ -76,11 +75,11 @@ int main(void)
 
     G.red_sprite = rgfx_sprite_create(&sprite_desc);
 
-    sprite_desc.position = (rmath_vec3_t){ 0.5f, 0.0f, 0.0f };
-    sprite_desc.size     = (rmath_vec2_t){ 0.2f, 0.2f };
-    sprite_desc.color    = (rmath_color_t){ 1.0f, 1.0f, 1.0f };
+    sprite_desc.position     = (rmath_vec3_t){ 0.5f, 0.0f, 0.0f };
+    sprite_desc.size         = (rmath_vec2_t){ 0.2f, 0.2f };
+    sprite_desc.color        = (rmath_color_t){ 1.0f, 1.0f, 1.0f };
     sprite_desc.texture_path = "assets/textures/googly-b.png";
-    G.green_sprite       = rgfx_sprite_create(&sprite_desc);
+    G.green_sprite           = rgfx_sprite_create(&sprite_desc);
 
     // Initialize game state
     G.time         = 0.0f;

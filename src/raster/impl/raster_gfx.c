@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h> // Include without implementation
 
 // Internal sprite structure
@@ -20,7 +21,6 @@ struct rgfx_sprite
     rmath_vec3_t position;
     rmath_vec2_t size;
     rmath_color_t color;      // Using color struct instead of separate r, g, b
-    int          z_order;
 };
 
 // Default shader source code
@@ -186,7 +186,6 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     sprite->position = desc->position;
     sprite->size     = desc->size;
     sprite->color    = desc->color;
-    sprite->z_order  = 0;
     sprite->textureID = 0;  // Initialize with no texture
     sprite->hasTexture = false;
 
@@ -415,14 +414,6 @@ void rgfx_sprite_set_color_struct(rgfx_sprite_t* sprite, rmath_color_t color)
     }
 }
 
-void rgfx_sprite_set_z_order(rgfx_sprite_t* sprite, int z_order)
-{
-    if (sprite)
-    {
-        sprite->z_order = z_order;
-    }
-}
-
 rmath_vec3_t rgfx_sprite_get_position_vec3(rgfx_sprite_t* sprite)
 {
     rmath_vec3_t result = {0};
@@ -451,11 +442,6 @@ rmath_color_t rgfx_sprite_get_color(rgfx_sprite_t* sprite)
         result = sprite->color;
     }
     return result;
-}
-
-int rgfx_sprite_get_z_order(rgfx_sprite_t* sprite)
-{
-    return sprite ? sprite->z_order : 0;
 }
 
 // Load texture from file
