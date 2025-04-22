@@ -16,7 +16,6 @@ extern "C"
 {
 #endif
 
-// Core headers with Sokol-style naming
 #include "raster_math.h"
 #include "raster_app.h"
 #include "raster_gfx.h"

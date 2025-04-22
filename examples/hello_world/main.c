@@ -1,7 +1,6 @@
 #include "raster/raster.h"
 #include <stdio.h>
 
-// Game state
 typedef struct
 {
     rgfx_sprite_t* red_sprite;
@@ -13,28 +12,23 @@ typedef struct
 
 static game_state_t G;
 
-// Update callback
 void game_update(float dt)
 {
     G.time += dt;
 
-    // Update sprite positions for animation
     vec3 red_pos = { 0.0f, 0.3f * sin(G.time * G.bounce_speed), 0.0f };
     rgfx_sprite_set_position(G.red_sprite, red_pos);
 
-    // Use a vector-based position setter for the green sprite
     vec2 orbit_vec2 = { 0.5f * cos(G.time * G.orbit_speed), 0.5f * sin(G.time * G.orbit_speed) };
     vec3 orbit_pos  = { orbit_vec2.x, orbit_vec2.y, 0.0f };
     rgfx_sprite_set_position(G.green_sprite, orbit_pos);
 
-    // Check for input using the shorter prefix
     if (rinput_key_pressed(RINPUT_KEY_ESCAPE))
     {
         rapp_quit();
     }
 }
 
-// Draw callback
 void game_draw(void)
 {
     color bg_color = { 0.13f, 0.56f, 0.88f };
@@ -44,7 +38,6 @@ void game_draw(void)
     rgfx_sprite_draw(G.green_sprite);
 }
 
-// Cleanup callback
 void game_cleanup(void)
 {
     rlog_info("Cleaning up game resources");
@@ -54,7 +47,6 @@ void game_cleanup(void)
 
 int main(void)
 {
-    // Initialize using descriptor-based approach
     rapp_desc_t app_desc = { .window     = { .title = "Raster Engine Demo", .width = 800, .height = 600 },
                              .update_fn  = game_update,
                              .draw_fn    = game_draw,
@@ -81,7 +73,6 @@ int main(void)
     sprite_desc.texture_path = "assets/textures/googly-b.png";
     G.green_sprite           = rgfx_sprite_create(&sprite_desc);
 
-    // Initialize game state
     G.time         = 0.0f;
     G.bounce_speed = 2.2f;
     G.orbit_speed  = 1.2f;
