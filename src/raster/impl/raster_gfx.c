@@ -1,5 +1,6 @@
 #include "raster/raster_gfx.h"
 #include "raster/raster_math.h"
+#include "raster/raster_log.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <stdlib.h>
@@ -86,7 +87,7 @@ char* rgfx_load_shader_source(const char* filepath)
 }
 
 // Helper function to compile shaders
-static unsigned int compile_shader(unsigned int type, const char* source)
+static unsigned int _compile_shader(unsigned int type, const char* source)
 {
     unsigned int shader = glCreateShader(type);
     glShaderSource(shader, 1, &source, NULL);
@@ -106,10 +107,10 @@ static unsigned int compile_shader(unsigned int type, const char* source)
 }
 
 // Helper function to create shader program
-static unsigned int create_shader_program(const char* vertexSource, const char* fragmentSource)
+static unsigned int _create_shader_program(const char* vertexSource, const char* fragmentSource)
 {
-    unsigned int vertexShader   = compile_shader(GL_VERTEX_SHADER, vertexSource);
-    unsigned int fragmentShader = compile_shader(GL_FRAGMENT_SHADER, fragmentSource);
+    unsigned int vertexShader   = _compile_shader(GL_VERTEX_SHADER, vertexSource);
+    unsigned int fragmentShader = _compile_shader(GL_FRAGMENT_SHADER, fragmentSource);
 
     unsigned int shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
@@ -167,7 +168,7 @@ void rgfx_shutdown(void)
 // Public function to create a shader program
 unsigned int rgfx_create_shader_program(const char* vertexSource, const char* fragmentSource)
 {
-    return create_shader_program(vertexSource, fragmentSource);
+    return _create_shader_program(vertexSource, fragmentSource);
 }
 
 // Descriptor-based sprite creation
@@ -202,7 +203,7 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
         if (customVertexSource)
             vertexSource = customVertexSource;
         else
-            printf("WARNING: Failed to load vertex shader from %s, using default\n", desc->vertex_shader_path);
+            rlog_warning("Failed to load vertex shader from %s, using default", desc->fragment_shader_path);
     }
     
     if (desc->fragment_shader_path)
@@ -211,10 +212,10 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
         if (customFragmentSource)
             fragmentSource = customFragmentSource;
         else
-            printf("WARNING: Failed to load fragment shader from %s, using default\n", desc->fragment_shader_path);
+            rlog_warning("Failed to load fragment shader from %s, using default", desc->fragment_shader_path);
     }
     
-    sprite->shaderProgram = create_shader_program(vertexSource, fragmentSource);
+    sprite->shaderProgram = _create_shader_program(vertexSource, fragmentSource);
     
     // Free custom shader sources if allocated
     if (customVertexSource)
