@@ -1,4 +1,5 @@
 #include "raster/raster.h"
+#include <stdio.h>
 
 // Game state
 typedef struct
@@ -66,9 +67,12 @@ int main(void)
         return -1;
     }
 
-    rgfx_sprite_desc_t sprite_desc = { .position = { 0.0f, 0.0f, 0.0f },
-                                       .size     = { 0.3f, 0.3f },
-                                       .color    = { 1.0f, 0.0f, 0.0f } };
+    rgfx_sprite_desc_t sprite_desc = { .position             = { 0.0f, 0.0f, 0.0f },
+                                       .size                 = { 0.5f, 0.5f },
+                                       .color                = { 1.0f, 1.0f, 1.0f },
+                                       .vertex_shader_path   = "assets/shaders/basic_texture.vert",
+                                       .fragment_shader_path = "assets/shaders/basic_texture.frag",
+                                       .texture_path         = "assets/textures/test_texture.png" };
 
     G.red_sprite = rgfx_sprite_create(&sprite_desc);
 

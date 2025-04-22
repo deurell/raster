@@ -18,6 +18,7 @@ add_library(raster STATIC
     src/raster/impl/raster_gfx.c
     src/raster/impl/raster_input.c
     src/raster/impl/raster_log.c
+    src/raster/impl/stb_image_impl.c
 )
 
 target_include_directories(raster 
@@ -29,6 +30,17 @@ target_include_directories(raster
         ${CMAKE_CURRENT_SOURCE_DIR}/libs
 )
 target_link_libraries(raster PUBLIC glad glfw)
+
+# Copy assets to build directory
+add_custom_target(copy_assets ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets
+        ${CMAKE_CURRENT_BINARY_DIR}/assets
+    COMMENT "Copying assets to build directory"
+)
+
+# Define a variable to be used in subdirectories
+set(RASTER_ASSETS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/assets)
 
 # Add examples
 add_subdirectory(examples/hello_world)
