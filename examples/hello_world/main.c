@@ -72,14 +72,14 @@ int main(void)
                                        .color                = { 1.0f, 1.0f, 1.0f },
                                        .vertex_shader_path   = "assets/shaders/basic_texture.vert",
                                        .fragment_shader_path = "assets/shaders/basic_texture.frag",
-                                       .texture_path         = "assets/textures/test_texture.png" };
+                                       .texture_path         = "assets/textures/googly-e.png" };
 
     G.red_sprite = rgfx_sprite_create(&sprite_desc);
 
-    // Modify the descriptor for the green sprite
     sprite_desc.position = (rmath_vec3_t){ 0.5f, 0.0f, 0.0f };
     sprite_desc.size     = (rmath_vec2_t){ 0.2f, 0.2f };
-    sprite_desc.color    = (rmath_color_t){ 0.0f, 1.0f, 0.0f };
+    sprite_desc.color    = (rmath_color_t){ 1.0f, 1.0f, 1.0f };
+    sprite_desc.texture_path = "assets/textures/googly-b.png";
     G.green_sprite       = rgfx_sprite_create(&sprite_desc);
 
     // Initialize game state
