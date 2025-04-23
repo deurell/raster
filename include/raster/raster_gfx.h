@@ -75,7 +75,10 @@ extern "C"
     rgfx_camera_t* rgfx_camera_create(const rgfx_camera_desc_t* desc);
     void rgfx_camera_destroy(rgfx_camera_t* camera);
     void rgfx_camera_set_position(rgfx_camera_t* camera, vec3 position);
-    void rgfx_camera_set_target(rgfx_camera_t* camera, vec3 target);
+    void rgfx_camera_set_direction(rgfx_camera_t* camera, vec3 direction);
+    void rgfx_camera_look_at(rgfx_camera_t* camera, vec3 target);
+    void rgfx_camera_move(rgfx_camera_t* camera, vec3 offset);
+    void rgfx_camera_rotate(rgfx_camera_t* camera, float yaw, float pitch);
     void rgfx_camera_get_matrices(const rgfx_camera_t* camera, mat4x4 view, mat4x4 projection);
     void rgfx_set_active_camera(rgfx_camera_t* camera);
 

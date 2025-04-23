@@ -27,7 +27,7 @@ struct rgfx_sprite
 // Camera structure definition
 struct rgfx_camera {
     vec3 position;
-    vec3 target;
+    vec3 forward;  // Direction the camera is looking
     vec3 up;
     float fov;
     float aspect;
@@ -574,9 +574,9 @@ rgfx_camera_t* rgfx_camera_create(const rgfx_camera_desc_t* desc) {
     rgfx_camera_t* camera = (rgfx_camera_t*)malloc(sizeof(rgfx_camera_t));
     if (!camera) return NULL;
     
-    memcpy(camera->position, desc->position, sizeof(vec3));
-    memcpy(camera->target, desc->target, sizeof(vec3));
-    memcpy(camera->up, desc->up, sizeof(vec3));
+    vec3_dup(camera->position, desc->position);
+    vec3_dup(camera->forward, desc->target);
+    vec3_dup(camera->up, desc->up);
     camera->fov = desc->fov;
     camera->aspect = desc->aspect;
     camera->near = desc->near;
@@ -596,13 +596,13 @@ void rgfx_camera_destroy(rgfx_camera_t* camera) {
 
 void rgfx_camera_set_position(rgfx_camera_t* camera, vec3 position) {
     if (camera) {
-        memcpy(camera->position, position, sizeof(vec3));
+        vec3_dup(camera->position, position);
     }
 }
 
 void rgfx_camera_set_target(rgfx_camera_t* camera, vec3 target) {
     if (camera) {
-        memcpy(camera->target, target, sizeof(vec3));
+        vec3_dup(camera->forward, target);
     }
 }
 
@@ -613,8 +613,12 @@ void rgfx_camera_get_matrices(const rgfx_camera_t* camera, mat4x4 view, mat4x4 p
         return;
     }
     
-    // Calculate view matrix
-    mat4x4_look_at(view, camera->position, camera->target, camera->up);
+    // Calculate target point by adding forward direction to position
+    vec3 target;
+    vec3_add(target, camera->position, camera->forward);
+    
+    // Calculate view matrix using position and target point
+    mat4x4_look_at(view, camera->position, target, camera->up);
     
     // Calculate projection matrix
     mat4x4_perspective(projection, camera->fov, camera->aspect, camera->near, camera->far);
@@ -622,4 +626,47 @@ void rgfx_camera_get_matrices(const rgfx_camera_t* camera, mat4x4 view, mat4x4 p
 
 void rgfx_set_active_camera(rgfx_camera_t* camera) {
     active_camera = camera;
+}
+
+void rgfx_camera_set_direction(rgfx_camera_t* camera, vec3 direction) {
+    if (camera) {
+        vec3_norm(camera->forward, direction); // Normalize the direction vector
+    }
+}
+
+void rgfx_camera_move(rgfx_camera_t* camera, vec3 offset) {
+    if (camera) {
+        vec3_add(camera->position, camera->position, offset);
+    }
+}
+
+void rgfx_camera_rotate(rgfx_camera_t* camera, float yaw, float pitch) {
+    if (!camera) return;
+    
+    // Convert angles to radians
+    float yaw_rad = yaw * (3.14159f / 180.0f);
+    float pitch_rad = pitch * (3.14159f / 180.0f);
+    
+    // Calculate new forward direction
+    camera->forward[0] = cosf(yaw_rad) * cosf(pitch_rad);
+    camera->forward[1] = sinf(pitch_rad);
+    camera->forward[2] = sinf(yaw_rad) * cosf(pitch_rad);
+    
+    vec3_norm(camera->forward, camera->forward);
+}
+
+void rgfx_camera_look_at(rgfx_camera_t* camera, vec3 target) {
+    if (!camera) return;
+    
+    // Calculate direction vector from camera position to target
+    vec3 direction;
+    direction[0] = target[0] - camera->position[0];
+    direction[1] = target[1] - camera->position[1];
+    direction[2] = target[2] - camera->position[2];
+    
+    // Normalize the direction vector
+    vec3_norm(direction, direction);
+    
+    // Set the camera's forward direction
+    vec3_dup(camera->forward, direction);
 }
