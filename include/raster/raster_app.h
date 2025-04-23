@@ -6,7 +6,7 @@ extern "C"
 #endif
 
 #include <stdbool.h>
-#include "raster_math.h"  // Include our math library
+#include "raster_math.h" // Include our math library
 
     // Callback function typedefs
     typedef void (*rapp_update_fn)(float dt);
@@ -25,9 +25,9 @@ extern "C"
     typedef struct
     {
         rapp_window_desc_t window;
-        rapp_update_fn update_fn;
-        rapp_draw_fn draw_fn;
-        rapp_cleanup_fn cleanup_fn;
+        rapp_update_fn     update_fn;
+        rapp_draw_fn       draw_fn;
+        rapp_cleanup_fn    cleanup_fn;
     } rapp_desc_t;
 
     // App lifecycle

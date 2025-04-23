@@ -67,7 +67,8 @@ extern "C"
     } rinput_key_t;
 
     // Mouse buttons
-    typedef enum {
+    typedef enum
+    {
         RINPUT_MOUSE_BUTTON_LEFT   = 0,
         RINPUT_MOUSE_BUTTON_RIGHT  = 1,
         RINPUT_MOUSE_BUTTON_MIDDLE = 2
@@ -80,10 +81,10 @@ extern "C"
 
     // Mouse input
     rmath_vec2_t rinput_mouse_position(void);
-    bool rinput_mouse_button_down(rinput_mouse_button_t button);
-    bool rinput_mouse_button_pressed(rinput_mouse_button_t button);
-    bool rinput_mouse_button_released(rinput_mouse_button_t button);
-    void rinput_debug_print_pressed_keys(void);
+    bool         rinput_mouse_button_down(rinput_mouse_button_t button);
+    bool         rinput_mouse_button_pressed(rinput_mouse_button_t button);
+    bool         rinput_mouse_button_released(rinput_mouse_button_t button);
+    void         rinput_debug_print_pressed_keys(void);
 
 #ifdef __cplusplus
 }

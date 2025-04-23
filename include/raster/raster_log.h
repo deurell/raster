@@ -8,7 +8,8 @@ extern "C"
 #include <stdarg.h> // Include for va_list, va_start, va_end
 
     // Log levels
-    typedef enum {
+    typedef enum
+    {
         RLOG_LEVEL_TRACE,
         RLOG_LEVEL_DEBUG,
         RLOG_LEVEL_INFO,

@@ -31,7 +31,8 @@ static struct
 
 // Emscripten main loop function
 #ifdef __EMSCRIPTEN__
-void emscripten_main_loop(void) {
+void emscripten_main_loop(void)
+{
     // Update time values
     app_state.lastTime    = app_state.currentTime;
     app_state.currentTime = glfwGetTime();
@@ -54,15 +55,17 @@ void emscripten_main_loop(void) {
     {
         glfwSwapBuffers(app_state.window);
     }
-    
+
     // Check if we should quit
-    if (app_state.should_quit || glfwWindowShouldClose(app_state.window)) {
+    if (app_state.should_quit || glfwWindowShouldClose(app_state.window))
+    {
         emscripten_cancel_main_loop();
-        
-        if (app_state.cleanup_callback) {
+
+        if (app_state.cleanup_callback)
+        {
             app_state.cleanup_callback();
         }
-        
+
         rgfx_shutdown();
     }
 }
@@ -86,7 +89,7 @@ bool rapp_init(const rapp_desc_t* desc)
     // Configure OpenGL context
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    
+
 #ifdef __EMSCRIPTEN__
     // For WebGL, we need to use the ES profile
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE);

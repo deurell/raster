@@ -13,17 +13,16 @@
 // Internal sprite structure
 struct rgfx_sprite
 {
-    unsigned int VAO;
-    unsigned int VBO;
-    unsigned int EBO;
-    unsigned int shaderProgram;
-    unsigned int textureID;
-    bool hasTexture;
-    rmath_vec3_t position;
-    rmath_vec2_t size;
+    unsigned int  VAO;
+    unsigned int  VBO;
+    unsigned int  EBO;
+    unsigned int  shaderProgram;
+    unsigned int  textureID;
+    bool          hasTexture;
+    rmath_vec3_t  position;
+    rmath_vec2_t  size;
     rmath_color_t color;
 };
-
 
 // Load shader source from file
 char* rgfx_load_shader_source(const char* filepath)
@@ -63,12 +62,12 @@ char* rgfx_load_shader_source(const char* filepath)
     }
 
     source[size] = '\0';
-    
+
     if (strstr(source, "#version") == NULL)
     {
         // Select appropriate GLSL version based on platform
         const char* version_directive;
-        
+
 #if defined(__EMSCRIPTEN__)
         rlog_info("Using WebGL/GLSL ES shader version");
         version_directive = "#version 300 es\nprecision mediump float;\n";
@@ -79,24 +78,24 @@ char* rgfx_load_shader_source(const char* filepath)
 
         // Version directive not found, allocate new buffer with enough space for directive
         size_t directive_len = strlen(version_directive);
-        char* new_source = (char*)malloc(size + directive_len + 1);
-        
+        char*  new_source    = (char*)malloc(size + directive_len + 1);
+
         if (!new_source)
         {
             free(source);
             rlog_error("Failed to allocate memory for shader source with version directive\n");
             return NULL;
         }
-        
+
         // Copy version directive followed by original source
         strcpy(new_source, version_directive);
         strcat(new_source, source);
-        
+
         // Free original buffer and return the new one
         free(source);
         return new_source;
     }
-    
+
     // Version directive already exists, return original source
     return source;
 }
@@ -193,7 +192,8 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
         return NULL;
 
     // Require vertex and fragment shader paths
-    if (!desc->vertex_shader_path || !desc->fragment_shader_path) {
+    if (!desc->vertex_shader_path || !desc->fragment_shader_path)
+    {
         rlog_error("Vertex and fragment shader paths are required");
         return NULL;
     }
@@ -205,35 +205,37 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     }
 
     // Initialize sprite data from descriptor
-    sprite->position = desc->position;
-    sprite->size     = desc->size;
-    sprite->color    = desc->color;
-    sprite->textureID = 0;  // Initialize with no texture
+    sprite->position   = desc->position;
+    sprite->size       = desc->size;
+    sprite->color      = desc->color;
+    sprite->textureID  = 0; // Initialize with no texture
     sprite->hasTexture = false;
 
     // Load shader files - no fallback to defaults
     char* vertexSource = rgfx_load_shader_source(desc->vertex_shader_path);
-    if (!vertexSource) {
+    if (!vertexSource)
+    {
         rlog_error("Failed to load vertex shader from %s", desc->vertex_shader_path);
         free(sprite);
         return NULL;
     }
-    
+
     char* fragmentSource = rgfx_load_shader_source(desc->fragment_shader_path);
-    if (!fragmentSource) {
+    if (!fragmentSource)
+    {
         rlog_error("Failed to load fragment shader from %s", desc->fragment_shader_path);
         free(vertexSource);
         free(sprite);
         return NULL;
     }
-    
+
     // Create the shader program
     sprite->shaderProgram = _create_shader_program(vertexSource, fragmentSource);
-    
+
     // Free shader sources after creating program
     free(vertexSource);
     free(fragmentSource);
-        
+
     if (sprite->shaderProgram == 0)
     {
         free(sprite);
@@ -246,7 +248,7 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
         unsigned int texture = rgfx_load_texture(desc->texture_path);
         if (texture > 0)
         {
-            sprite->textureID = texture;
+            sprite->textureID  = texture;
             sprite->hasTexture = true;
         }
         else
@@ -258,20 +260,20 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     // Define vertices for a quad (square)
     // For custom shaders with texture support, we need to include texture coordinates
     float vertices[16];
-    bool useTextureCoords = false;
-    
+    bool  useTextureCoords = false;
+
     // Check if the shader has texture coordinate attribute
     if (glGetAttribLocation(sprite->shaderProgram, "aTexCoord") != -1)
     {
         useTextureCoords = true;
-        
+
         // Vertices with position and texture coordinates
         float verts[] = {
             // positions    // texture coords
-            -0.5f, -0.5f,  0.0f, 0.0f, // bottom left
-             0.5f, -0.5f,  1.0f, 0.0f, // bottom right
-             0.5f,  0.5f,  1.0f, 1.0f, // top right
-            -0.5f,  0.5f,  0.0f, 1.0f  // top left
+            -0.5f, -0.5f, 0.0f, 0.0f, // bottom left
+            0.5f,  -0.5f, 1.0f, 0.0f, // bottom right
+            0.5f,  0.5f,  1.0f, 1.0f, // top right
+            -0.5f, 0.5f,  0.0f, 1.0f  // top left
         };
         memcpy(vertices, verts, sizeof(verts));
     }
@@ -280,9 +282,9 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
         // Just positions for default shader
         float verts[] = {
             -0.5f, -0.5f, // bottom left
-             0.5f, -0.5f, // bottom right
-             0.5f,  0.5f, // top right
-            -0.5f,  0.5f  // top left
+            0.5f,  -0.5f, // bottom right
+            0.5f,  0.5f,  // top right
+            -0.5f, 0.5f   // top left
         };
         memcpy(vertices, verts, sizeof(verts));
     }
@@ -303,8 +305,7 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
 
     // Bind and set VBO and EBO
     glBindBuffer(GL_ARRAY_BUFFER, sprite->VBO);
-    glBufferData(GL_ARRAY_BUFFER, useTextureCoords ? sizeof(float) * 16 : sizeof(float) * 8, 
-                vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, useTextureCoords ? sizeof(float) * 16 : sizeof(float) * 8, vertices, GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sprite->EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
@@ -314,7 +315,7 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
         // Set position attribute
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
-        
+
         // Set texture coordinate attribute
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
         glEnableVertexAttribArray(1);
@@ -363,25 +364,29 @@ void rgfx_sprite_draw(rgfx_sprite_t* sprite)
     // Set common uniforms for position, size, and color
     glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uPosition"), sprite->position.x, sprite->position.y);
     glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uSize"), sprite->size.x, sprite->size.y);
-    glUniform3f(glGetUniformLocation(sprite->shaderProgram, "uColor"), sprite->color.r, sprite->color.g, sprite->color.b);
+    glUniform3f(
+        glGetUniformLocation(sprite->shaderProgram, "uColor"), sprite->color.r, sprite->color.g, sprite->color.b);
 
     // Check if the uniform exists before setting it
     // This handles the uUseTexture uniform which is only in the custom shader
     int useTextureLocation = glGetUniformLocation(sprite->shaderProgram, "uUseTexture");
-    if (useTextureLocation != -1) {
+    if (useTextureLocation != -1)
+    {
         glUniform1i(useTextureLocation, sprite->hasTexture ? 1 : 0);
     }
 
     // Handle texture if it exists
-    if (sprite->hasTexture && sprite->textureID > 0) {
+    if (sprite->hasTexture && sprite->textureID > 0)
+    {
         // Active texture unit 0
         glActiveTexture(GL_TEXTURE0);
         // Bind the texture
         glBindTexture(GL_TEXTURE_2D, sprite->textureID);
-        
+
         // Set the texture sampler uniform (only if it exists in the shader)
         int textureLoc = glGetUniformLocation(sprite->shaderProgram, "uTexture");
-        if (textureLoc != -1) {
+        if (textureLoc != -1)
+        {
             glUniform1i(textureLoc, 0); // Use texture unit 0
         }
     }
@@ -394,9 +399,10 @@ void rgfx_sprite_draw(rgfx_sprite_t* sprite)
 
     // Unbind the vertex array
     glBindVertexArray(0);
-    
+
     // Unbind texture if we had one
-    if (sprite->hasTexture && sprite->textureID > 0) {
+    if (sprite->hasTexture && sprite->textureID > 0)
+    {
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 }
@@ -428,7 +434,7 @@ void rgfx_sprite_set_color(rgfx_sprite_t* sprite, rmath_color_t color)
 
 rmath_vec3_t rgfx_sprite_get_position_vec3(rgfx_sprite_t* sprite)
 {
-    rmath_vec3_t result = {0};
+    rmath_vec3_t result = { 0 };
     if (sprite)
     {
         result = sprite->position;
@@ -438,7 +444,7 @@ rmath_vec3_t rgfx_sprite_get_position_vec3(rgfx_sprite_t* sprite)
 
 rmath_vec2_t rgfx_sprite_get_size(rgfx_sprite_t* sprite)
 {
-    rmath_vec2_t result = {0};
+    rmath_vec2_t result = { 0 };
     if (sprite)
     {
         result = sprite->size;
@@ -448,7 +454,7 @@ rmath_vec2_t rgfx_sprite_get_size(rgfx_sprite_t* sprite)
 
 rmath_color_t rgfx_sprite_get_color(rgfx_sprite_t* sprite)
 {
-    rmath_color_t result = {0};
+    rmath_color_t result = { 0 };
     if (sprite)
     {
         result = sprite->color;
@@ -465,12 +471,12 @@ unsigned int rgfx_load_texture(const char* filepath)
     // Generate texture
     unsigned int textureID;
     glGenTextures(1, &textureID);
-    
+
     // Load image data using stb_image
     int width, height, channels;
     stbi_set_flip_vertically_on_load(true); // Flip y-axis during loading
     unsigned char* data = stbi_load(filepath, &width, &height, &channels, 0);
-    
+
     if (data)
     {
         GLenum format;
@@ -487,23 +493,23 @@ unsigned int rgfx_load_texture(const char* filepath)
             glDeleteTextures(1, &textureID);
             return 0;
         }
-        
+
         // Bind and set texture parameters
         glBindTexture(GL_TEXTURE_2D, textureID);
-        
+
         // Set texture parameters
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        
+
         // Upload texture data
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
-        
+
         // Free image data
         stbi_image_free(data);
-        
+
         return textureID;
     }
     else
@@ -527,8 +533,8 @@ void rgfx_sprite_set_texture(rgfx_sprite_t* sprite, unsigned int textureID)
 {
     if (!sprite)
         return;
-        
-    sprite->textureID = textureID;
+
+    sprite->textureID  = textureID;
     sprite->hasTexture = (textureID > 0);
 }
 

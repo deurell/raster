@@ -18,18 +18,33 @@ void rlog_set_level(rlog_level_t level)
 void rlog(rlog_level_t level, const char* fmt, ...)
 {
     const char* level_str = "";
-    
+
     // Determine level string
-    switch (level) {
-        case RLOG_LEVEL_TRACE:   level_str = "TRACE"; break;
-        case RLOG_LEVEL_DEBUG:   level_str = "DEBUG"; break;
-        case RLOG_LEVEL_INFO:    level_str = "INFO"; break;
-        case RLOG_LEVEL_WARNING: level_str = "WARNING"; break;
-        case RLOG_LEVEL_ERROR:   level_str = "ERROR"; break;
-        case RLOG_LEVEL_FATAL:   level_str = "FATAL"; break;
-        default:                 level_str = "UNKNOWN"; break;
+    switch (level)
+    {
+    case RLOG_LEVEL_TRACE:
+        level_str = "TRACE";
+        break;
+    case RLOG_LEVEL_DEBUG:
+        level_str = "DEBUG";
+        break;
+    case RLOG_LEVEL_INFO:
+        level_str = "INFO";
+        break;
+    case RLOG_LEVEL_WARNING:
+        level_str = "WARNING";
+        break;
+    case RLOG_LEVEL_ERROR:
+        level_str = "ERROR";
+        break;
+    case RLOG_LEVEL_FATAL:
+        level_str = "FATAL";
+        break;
+    default:
+        level_str = "UNKNOWN";
+        break;
     }
-    
+
     va_list args;
     va_start(args, fmt);
     log_message(level, level_str, fmt, args);
