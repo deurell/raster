@@ -10,16 +10,30 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Emscripten")
         PROPERTIES
         SUFFIX ".html"
     )
+    # No additional preload options needed - handled at the root level
 endif()
 
-# Add dependency on copy_assets
-add_dependencies(hello_world copy_assets)
+# Add dependency on engine assets
+add_dependencies(hello_world copy_engine_assets)
 
-# Also copy assets to this specific output directory
-add_custom_command(
-    TARGET hello_world POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${RASTER_ASSETS_DIR}
-        ${CMAKE_CURRENT_BINARY_DIR}/assets
-    COMMENT "Copying assets to hello_world executable directory"
-)
+# Copy hello_world's assets to the shared assets directory if the directory exists
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/assets)
+    add_custom_command(
+        TARGET hello_world PRE_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/assets
+            ${RASTER_ASSETS_DIR}
+        COMMENT "Copying hello_world assets to the shared assets directory"
+    )
+endif()
+
+# For non-Emscripten builds, also copy the combined assets to the example's output directory
+if(NOT EMSCRIPTEN_BUILD)
+    add_custom_command(
+        TARGET hello_world POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${RASTER_ASSETS_DIR}
+            ${CMAKE_CURRENT_BINARY_DIR}/assets
+        COMMENT "Copying combined assets to hello_world executable directory"
+    )
+endif()

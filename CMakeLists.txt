@@ -10,7 +10,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Emscripten")
     set(EMSCRIPTEN_BUILD TRUE)
     message(STATUS "Building for Emscripten")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s ALLOW_MEMORY_GROWTH=1")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/assets@/assets")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --preload-file ${CMAKE_BINARY_DIR}/assets@/assets")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s USE_GLFW=3 -s MIN_WEBGL_VERSION=2 -s MAX_WEBGL_VERSION=2")
     add_compile_definitions(__EMSCRIPTEN__)
 endif()
@@ -51,16 +51,23 @@ else()
     target_link_libraries(raster PUBLIC glad glfw)
 endif()
 
-# Copy assets to build directory
-add_custom_target(copy_assets ALL
+# Create the assets directory in the build folder
+add_custom_target(create_assets_dir ALL
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/assets
+    COMMENT "Creating assets directory"
+)
+
+# Copy engine assets to build directory
+add_custom_target(copy_engine_assets ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/assets
-        ${CMAKE_CURRENT_BINARY_DIR}/assets
-    COMMENT "Copying assets to build directory"
+        ${CMAKE_BINARY_DIR}/assets
+    COMMENT "Copying engine assets to build directory"
+    DEPENDS create_assets_dir
 )
 
 # Define a variable to be used in subdirectories
-set(RASTER_ASSETS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/assets)
+set(RASTER_ASSETS_DIR ${CMAKE_BINARY_DIR}/assets)
 
 # Add examples
 add_subdirectory(examples/hello_world)
