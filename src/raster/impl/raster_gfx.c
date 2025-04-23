@@ -19,9 +19,9 @@ struct rgfx_sprite
     unsigned int  shaderProgram;
     unsigned int  textureID;
     bool          hasTexture;
-    rmath_vec3_t  position;
-    rmath_vec2_t  size;
-    rmath_color_t color;
+    vec3          position;
+    vec2          size;
+    color         color;
 };
 
 // Load shader source from file
@@ -169,7 +169,7 @@ void rgfx_clear(float r, float g, float b)
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-void rgfx_clear_color(rmath_color_t color)
+void rgfx_clear_color(color color)
 {
     rgfx_clear(color.r, color.g, color.b);
 }
@@ -204,12 +204,10 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
         return NULL;
     }
 
-    // Initialize sprite data from descriptor
-    sprite->position   = desc->position;
-    sprite->size       = desc->size;
-    sprite->color      = desc->color;
-    sprite->textureID  = 0; // Initialize with no texture
-    sprite->hasTexture = false;
+    // Use linmath.h's vec*_dup functions
+    vec3_dup(sprite->position, desc->position);
+    vec2_dup(sprite->size, desc->size);
+    sprite->color = desc->color;
 
     // Load shader files - no fallback to defaults
     char* vertexSource = rgfx_load_shader_source(desc->vertex_shader_path);
@@ -362,8 +360,8 @@ void rgfx_sprite_draw(rgfx_sprite_t* sprite)
     glUseProgram(sprite->shaderProgram);
 
     // Set common uniforms for position, size, and color
-    glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uPosition"), sprite->position.x, sprite->position.y);
-    glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uSize"), sprite->size.x, sprite->size.y);
+    glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uPosition"), sprite->position[0], sprite->position[1]);
+    glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uSize"), sprite->size[0], sprite->size[1]);
     glUniform3f(
         glGetUniformLocation(sprite->shaderProgram, "uColor"), sprite->color.r, sprite->color.g, sprite->color.b);
 
@@ -408,23 +406,26 @@ void rgfx_sprite_draw(rgfx_sprite_t* sprite)
 }
 
 // Sprite properties setters and getters
-void rgfx_sprite_set_position(rgfx_sprite_t* sprite, rmath_vec3_t position)
+// Improved setters using linmath's vec*_dup functions
+void rgfx_sprite_set_position(rgfx_sprite_t* sprite, vec3 position)
 {
     if (sprite)
     {
-        sprite->position = position;
+        // Use the built-in vec3_dup function instead of element-by-element assignment
+        vec3_dup(sprite->position, position);
     }
 }
 
-void rgfx_sprite_set_size(rgfx_sprite_t* sprite, rmath_vec2_t size)
+void rgfx_sprite_set_size(rgfx_sprite_t* sprite, vec2 size)
 {
     if (sprite)
     {
-        sprite->size = size;
+        // Use the built-in vec2_dup function instead of element-by-element assignment
+        vec2_dup(sprite->size, size);
     }
 }
 
-void rgfx_sprite_set_color(rgfx_sprite_t* sprite, rmath_color_t color)
+void rgfx_sprite_set_color(rgfx_sprite_t* sprite, color color)
 {
     if (sprite)
     {
@@ -432,29 +433,41 @@ void rgfx_sprite_set_color(rgfx_sprite_t* sprite, rmath_color_t color)
     }
 }
 
-rmath_vec3_t rgfx_sprite_get_position_vec3(rgfx_sprite_t* sprite)
+// Getter functions can also use vec*_dup
+void rgfx_sprite_get_position(rgfx_sprite_t* sprite, vec3 out_position)
 {
-    rmath_vec3_t result = { 0 };
-    if (sprite)
+    if (sprite && out_position)
     {
-        result = sprite->position;
+        // Use vec3_dup instead of manual assignment
+        vec3_dup(out_position, sprite->position);
     }
-    return result;
+    else if (out_position)
+    {
+        // Zero-initialize
+        out_position[0] = 0.0f;
+        out_position[1] = 0.0f;
+        out_position[2] = 0.0f;
+    }
 }
 
-rmath_vec2_t rgfx_sprite_get_size(rgfx_sprite_t* sprite)
+void rgfx_sprite_get_size(rgfx_sprite_t* sprite, vec2 out_size)
 {
-    rmath_vec2_t result = { 0 };
-    if (sprite)
+    if (sprite && out_size)
     {
-        result = sprite->size;
+        // Use vec2_dup instead of manual assignment
+        vec2_dup(out_size, sprite->size);
     }
-    return result;
+    else if (out_size)
+    {
+        // Zero-initialize
+        out_size[0] = 0.0f;
+        out_size[1] = 0.0f;
+    }
 }
 
-rmath_color_t rgfx_sprite_get_color(rgfx_sprite_t* sprite)
+color rgfx_sprite_get_color(rgfx_sprite_t* sprite)
 {
-    rmath_color_t result = { 0 };
+    color result = {0};
     if (sprite)
     {
         result = sprite->color;

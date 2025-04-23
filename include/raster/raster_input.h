@@ -80,11 +80,11 @@ extern "C"
     bool rinput_key_released(rinput_key_t key);
 
     // Mouse input
-    rmath_vec2_t rinput_mouse_position(void);
-    bool         rinput_mouse_button_down(rinput_mouse_button_t button);
-    bool         rinput_mouse_button_pressed(rinput_mouse_button_t button);
-    bool         rinput_mouse_button_released(rinput_mouse_button_t button);
-    void         rinput_debug_print_pressed_keys(void);
+    void rinput_mouse_position(vec2 out_position);
+    bool rinput_mouse_button_down(rinput_mouse_button_t button);
+    bool rinput_mouse_button_pressed(rinput_mouse_button_t button);
+    bool rinput_mouse_button_released(rinput_mouse_button_t button);
+    void rinput_debug_print_pressed_keys(void);
 
 #ifdef __cplusplus
 }

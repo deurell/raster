@@ -1,4 +1,3 @@
-// filepath: /Users/mikael/source/raster/include/raster/raster.h
 #pragma once
 
 /*
@@ -21,11 +20,6 @@ extern "C"
 #include "raster_gfx.h"
 #include "raster_input.h"
 #include "raster_log.h"
-
-    typedef rmath_vec2_t  vec2;
-    typedef rmath_vec3_t  vec3;
-    typedef rmath_vec4_t  vec4;
-    typedef rmath_color_t color;
 
 #ifdef __cplusplus
 }

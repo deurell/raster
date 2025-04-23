@@ -51,11 +51,14 @@ bool rinput_key_released(rinput_key_t key)
     return !input_state.keys[key] && input_state.prev_keys[key];
 }
 
-// Mouse position function that returns a vector
-rmath_vec2_t rinput_mouse_position(void)
+// Mouse position function with output parameter - simplified direct assignment
+void rinput_mouse_position(vec2 out_position)
 {
-    rmath_vec2_t result = { .x = (float)input_state.mouse_x, .y = (float)input_state.mouse_y };
-    return result;
+    if (out_position)
+    {
+        out_position[0] = (float)input_state.mouse_x;
+        out_position[1] = (float)input_state.mouse_y;
+    }
 }
 
 // Mouse button functions
