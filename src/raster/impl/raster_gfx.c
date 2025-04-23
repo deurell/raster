@@ -24,22 +24,6 @@ struct rgfx_sprite
     rmath_color_t color;
 };
 
-// Default shader source code
-static const char* s_vertex_shader_src = "layout (location = 0) in vec2 aPos;\n"
-                                         "uniform vec2 uPosition;\n"
-                                         "uniform vec2 uSize;\n"
-                                         "void main()\n"
-                                         "{\n"
-                                         "    vec2 pos = aPos * uSize + uPosition;\n"
-                                         "    gl_Position = vec4(pos, 0.0, 1.0);\n"
-                                         "}\n";
-
-static const char* s_fragment_shader_src = "out vec4 FragColor;\n"
-                                           "uniform vec3 uColor;\n"
-                                           "void main()\n"
-                                           "{\n"
-                                           "    FragColor = vec4(uColor, 1.0);\n"
-                                           "}\n";
 
 // Load shader source from file
 char* rgfx_load_shader_source(const char* filepath)
@@ -68,7 +52,6 @@ char* rgfx_load_shader_source(const char* filepath)
         return NULL;
     }
 
-    // Read file content
     size_t bytesRead = fread(source, 1, size, file);
     fclose(file);
 
@@ -79,10 +62,8 @@ char* rgfx_load_shader_source(const char* filepath)
         return NULL;
     }
 
-    // Null terminate the string
     source[size] = '\0';
     
-    // Check if the shader already has a version directive
     if (strstr(source, "#version") == NULL)
     {
         // Select appropriate GLSL version based on platform
@@ -211,6 +192,12 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     if (!desc)
         return NULL;
 
+    // Require vertex and fragment shader paths
+    if (!desc->vertex_shader_path || !desc->fragment_shader_path) {
+        rlog_error("Vertex and fragment shader paths are required");
+        return NULL;
+    }
+
     rgfx_sprite_t* sprite = (rgfx_sprite_t*)malloc(sizeof(rgfx_sprite_t));
     if (!sprite)
     {
@@ -224,38 +211,28 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     sprite->textureID = 0;  // Initialize with no texture
     sprite->hasTexture = false;
 
-    // Create shader program - either from files or use defaults
-    const char* vertexSource = s_vertex_shader_src;
-    const char* fragmentSource = s_fragment_shader_src;
-    char* customVertexSource = NULL;
-    char* customFragmentSource = NULL;
-    
-    // Load custom shaders if specified
-    if (desc->vertex_shader_path)
-    {
-        customVertexSource = rgfx_load_shader_source(desc->vertex_shader_path);
-        if (customVertexSource)
-            vertexSource = customVertexSource;
-        else
-            rlog_warning("Failed to load vertex shader from %s, using default", desc->fragment_shader_path);
+    // Load shader files - no fallback to defaults
+    char* vertexSource = rgfx_load_shader_source(desc->vertex_shader_path);
+    if (!vertexSource) {
+        rlog_error("Failed to load vertex shader from %s", desc->vertex_shader_path);
+        free(sprite);
+        return NULL;
     }
     
-    if (desc->fragment_shader_path)
-    {
-        customFragmentSource = rgfx_load_shader_source(desc->fragment_shader_path);
-        if (customFragmentSource)
-            fragmentSource = customFragmentSource;
-        else
-            rlog_warning("Failed to load fragment shader from %s, using default", desc->fragment_shader_path);
+    char* fragmentSource = rgfx_load_shader_source(desc->fragment_shader_path);
+    if (!fragmentSource) {
+        rlog_error("Failed to load fragment shader from %s", desc->fragment_shader_path);
+        free(vertexSource);
+        free(sprite);
+        return NULL;
     }
     
+    // Create the shader program
     sprite->shaderProgram = _create_shader_program(vertexSource, fragmentSource);
     
-    // Free custom shader sources if allocated
-    if (customVertexSource)
-        free(customVertexSource);
-    if (customFragmentSource)
-        free(customFragmentSource);
+    // Free shader sources after creating program
+    free(vertexSource);
+    free(fragmentSource);
         
     if (sprite->shaderProgram == 0)
     {
@@ -274,7 +251,7 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
         }
         else
         {
-            printf("WARNING: Failed to load texture from %s\n", desc->texture_path);
+            rlog_warning("Failed to load texture from %s", desc->texture_path);
         }
     }
 
