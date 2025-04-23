@@ -1,6 +1,10 @@
 #include "raster/raster.h"
 #include <stdio.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 typedef struct
 {
     rgfx_sprite_t* red_sprite;
@@ -58,6 +62,7 @@ int main(void)
         return -1;
     }
     rlog_info("Raster engine initialized successfully");
+    
     rgfx_sprite_desc_t sprite_desc = { .position             = { 0.0f, 0.0f, 0.0f },
                                        .size                 = { 0.5f, 0.5f },
                                        .color                = { 1.0f, 1.0f, 1.0f },

@@ -1,11 +1,9 @@
-#version 330 core
 out vec4 FragColor;
-
-in vec2 TexCoord;
+in  vec2 TexCoord;
 
 uniform sampler2D uTexture;
-uniform vec3 uColor;
-uniform bool uUseTexture;
+uniform vec3       uColor;
+uniform bool       uUseTexture;
 
 void main()
 {

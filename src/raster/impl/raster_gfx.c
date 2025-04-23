@@ -25,8 +25,7 @@ struct rgfx_sprite
 };
 
 // Default shader source code
-static const char* s_vertex_shader_src = "#version 330 core\n"
-                                         "layout (location = 0) in vec2 aPos;\n"
+static const char* s_vertex_shader_src = "layout (location = 0) in vec2 aPos;\n"
                                          "uniform vec2 uPosition;\n"
                                          "uniform vec2 uSize;\n"
                                          "void main()\n"
@@ -35,8 +34,7 @@ static const char* s_vertex_shader_src = "#version 330 core\n"
                                          "    gl_Position = vec4(pos, 0.0, 1.0);\n"
                                          "}\n";
 
-static const char* s_fragment_shader_src = "#version 330 core\n"
-                                           "out vec4 FragColor;\n"
+static const char* s_fragment_shader_src = "out vec4 FragColor;\n"
                                            "uniform vec3 uColor;\n"
                                            "void main()\n"
                                            "{\n"
@@ -83,6 +81,42 @@ char* rgfx_load_shader_source(const char* filepath)
 
     // Null terminate the string
     source[size] = '\0';
+    
+    // Check if the shader already has a version directive
+    if (strstr(source, "#version") == NULL)
+    {
+        // Select appropriate GLSL version based on platform
+        const char* version_directive;
+        
+#if defined(__EMSCRIPTEN__)
+        rlog_info("Using WebGL/GLSL ES shader version");
+        version_directive = "#version 300 es\nprecision mediump float;\n";
+#else
+        rlog_info("Using Desktop/GLSL shader version");
+        version_directive = "#version 330 core\n";
+#endif
+
+        // Version directive not found, allocate new buffer with enough space for directive
+        size_t directive_len = strlen(version_directive);
+        char* new_source = (char*)malloc(size + directive_len + 1);
+        
+        if (!new_source)
+        {
+            free(source);
+            rlog_error("Failed to allocate memory for shader source with version directive\n");
+            return NULL;
+        }
+        
+        // Copy version directive followed by original source
+        strcpy(new_source, version_directive);
+        strcat(new_source, source);
+        
+        // Free original buffer and return the new one
+        free(source);
+        return new_source;
+    }
+    
+    // Version directive already exists, return original source
     return source;
 }
 

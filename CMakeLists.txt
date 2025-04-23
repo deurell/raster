@@ -5,8 +5,24 @@ project(raster C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+# Check if Emscripten is being used
+if(${CMAKE_SYSTEM_NAME} MATCHES "Emscripten")
+    set(EMSCRIPTEN_BUILD TRUE)
+    message(STATUS "Building for Emscripten")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s ALLOW_MEMORY_GROWTH=1")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/assets@/assets")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s USE_GLFW=3 -s MIN_WEBGL_VERSION=2 -s MAX_WEBGL_VERSION=2")
+    add_compile_definitions(__EMSCRIPTEN__)
+endif()
+
 # Add external dependencies
-add_subdirectory(external/glfw)
+if(NOT EMSCRIPTEN_BUILD)
+    # Configure GLFW - not needed for Emscripten as it's bundled
+    set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    add_subdirectory(external/glfw)
+endif()
 
 # Configure GLAD
 add_library(glad STATIC external/glad/src/glad.c)
@@ -28,7 +44,12 @@ target_include_directories(raster
         ${CMAKE_CURRENT_SOURCE_DIR}/external/glad/include
         ${CMAKE_CURRENT_SOURCE_DIR}/libs
 )
-target_link_libraries(raster PUBLIC glad glfw)
+
+if(EMSCRIPTEN_BUILD)
+    target_link_libraries(raster PUBLIC glad)
+else()
+    target_link_libraries(raster PUBLIC glad glfw)
+endif()
 
 # Copy assets to build directory
 add_custom_target(copy_assets ALL
