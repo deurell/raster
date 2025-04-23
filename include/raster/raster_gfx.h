@@ -6,6 +6,7 @@ extern "C"
 #endif
 
 #include <stdbool.h>
+#include "linmath.h"
 #include "raster_math.h"
 
     // Graphics context
@@ -55,6 +56,28 @@ extern "C"
     color        rgfx_sprite_get_color(rgfx_sprite_t* sprite);
     int          rgfx_sprite_get_z_order(rgfx_sprite_t* sprite);
     unsigned int rgfx_sprite_get_texture_id(rgfx_sprite_t* sprite);
+
+    // Camera type forward declaration
+    typedef struct rgfx_camera rgfx_camera_t;
+
+    // Camera descriptor for initialization
+    typedef struct {
+        vec3 position;
+        vec3 target;
+        vec3 up;
+        float fov;           // Field of view in radians
+        float aspect;        // Aspect ratio (width/height)
+        float near;         // Near clipping plane
+        float far;          // Far clipping plane
+    } rgfx_camera_desc_t;
+
+    // Camera functions
+    rgfx_camera_t* rgfx_camera_create(const rgfx_camera_desc_t* desc);
+    void rgfx_camera_destroy(rgfx_camera_t* camera);
+    void rgfx_camera_set_position(rgfx_camera_t* camera, vec3 position);
+    void rgfx_camera_set_target(rgfx_camera_t* camera, vec3 target);
+    void rgfx_camera_get_matrices(const rgfx_camera_t* camera, mat4x4 view, mat4x4 projection);
+    void rgfx_set_active_camera(rgfx_camera_t* camera);
 
 #ifdef __cplusplus
 }

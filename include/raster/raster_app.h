@@ -6,7 +6,7 @@ extern "C"
 #endif
 
 #include <stdbool.h>
-#include "raster_math.h" // Include our math library
+#include "raster_gfx.h"
 
     // Callback function typedefs
     typedef void (*rapp_update_fn)(float dt);
@@ -28,6 +28,7 @@ extern "C"
         rapp_update_fn     update_fn;
         rapp_draw_fn       draw_fn;
         rapp_cleanup_fn    cleanup_fn;
+        rgfx_camera_desc_t camera;  // Default camera configuration
     } rapp_desc_t;
 
     // App lifecycle
@@ -39,6 +40,9 @@ extern "C"
     // Time functions
     float rapp_get_time(void);
     float rapp_get_delta_time(void);
+
+    // Camera functions
+    rgfx_camera_t* rapp_get_main_camera(void);
 
 #ifdef __cplusplus
 }

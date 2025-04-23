@@ -24,6 +24,19 @@ struct rgfx_sprite
     color         color;
 };
 
+// Camera structure definition
+struct rgfx_camera {
+    vec3 position;
+    vec3 target;
+    vec3 up;
+    float fov;
+    float aspect;
+    float near;
+    float far;
+};
+
+static rgfx_camera_t* active_camera = NULL;
+
 // Load shader source from file
 char* rgfx_load_shader_source(const char* filepath)
 {
@@ -351,56 +364,54 @@ void rgfx_sprite_destroy(rgfx_sprite_t* sprite)
 
 void rgfx_sprite_draw(rgfx_sprite_t* sprite)
 {
-    if (!sprite)
-    {
-        return;
-    }
+    if (!sprite) return;
 
-    // Use shader program
     glUseProgram(sprite->shaderProgram);
+
+    // Get and set camera matrices if there's an active camera
+    if (active_camera) {
+        mat4x4 view, projection;
+        rgfx_camera_get_matrices(active_camera, view, projection);
+        
+        // Set view and projection matrices in shader
+        glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uView"), 1, GL_FALSE, (float*)view);
+        glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uProjection"), 1, GL_FALSE, (float*)projection);
+    } else {
+        // Use identity matrices if no camera is active
+        mat4x4 identity;
+        mat4x4_identity(identity);
+        glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uView"), 1, GL_FALSE, (float*)identity);
+        glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uProjection"), 1, GL_FALSE, (float*)identity);
+    }
 
     // Set common uniforms for position, size, and color
     glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uPosition"), sprite->position[0], sprite->position[1]);
     glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uSize"), sprite->size[0], sprite->size[1]);
-    glUniform3f(
-        glGetUniformLocation(sprite->shaderProgram, "uColor"), sprite->color.r, sprite->color.g, sprite->color.b);
-
-    // Check if the uniform exists before setting it
-    // This handles the uUseTexture uniform which is only in the custom shader
-    int useTextureLocation = glGetUniformLocation(sprite->shaderProgram, "uUseTexture");
-    if (useTextureLocation != -1)
-    {
-        glUniform1i(useTextureLocation, sprite->hasTexture ? 1 : 0);
-    }
+    glUniform3f(glGetUniformLocation(sprite->shaderProgram, "uColor"), sprite->color.r, sprite->color.g, sprite->color.b);
 
     // Handle texture if it exists
-    if (sprite->hasTexture && sprite->textureID > 0)
-    {
-        // Active texture unit 0
+    if (sprite->hasTexture && sprite->textureID > 0) {
         glActiveTexture(GL_TEXTURE0);
-        // Bind the texture
         glBindTexture(GL_TEXTURE_2D, sprite->textureID);
-
-        // Set the texture sampler uniform (only if it exists in the shader)
+        
         int textureLoc = glGetUniformLocation(sprite->shaderProgram, "uTexture");
-        if (textureLoc != -1)
-        {
-            glUniform1i(textureLoc, 0); // Use texture unit 0
+        if (textureLoc != -1) {
+            glUniform1i(textureLoc, 0);
         }
+        
+        int useTextureLoc = glGetUniformLocation(sprite->shaderProgram, "uUseTexture");
+        if (useTextureLoc != -1) {
+            glUniform1i(useTextureLoc, 1);
+        }
+    } else if (glGetUniformLocation(sprite->shaderProgram, "uUseTexture") != -1) {
+        glUniform1i(glGetUniformLocation(sprite->shaderProgram, "uUseTexture"), 0);
     }
 
-    // Bind the vertex array
     glBindVertexArray(sprite->VAO);
-
-    // Draw the sprite
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-    // Unbind the vertex array
     glBindVertexArray(0);
 
-    // Unbind texture if we had one
-    if (sprite->hasTexture && sprite->textureID > 0)
-    {
+    if (sprite->hasTexture && sprite->textureID > 0) {
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 }
@@ -555,4 +566,60 @@ void rgfx_sprite_set_texture(rgfx_sprite_t* sprite, unsigned int textureID)
 unsigned int rgfx_sprite_get_texture_id(rgfx_sprite_t* sprite)
 {
     return sprite ? sprite->textureID : 0;
+}
+
+rgfx_camera_t* rgfx_camera_create(const rgfx_camera_desc_t* desc) {
+    if (!desc) return NULL;
+    
+    rgfx_camera_t* camera = (rgfx_camera_t*)malloc(sizeof(rgfx_camera_t));
+    if (!camera) return NULL;
+    
+    memcpy(camera->position, desc->position, sizeof(vec3));
+    memcpy(camera->target, desc->target, sizeof(vec3));
+    memcpy(camera->up, desc->up, sizeof(vec3));
+    camera->fov = desc->fov;
+    camera->aspect = desc->aspect;
+    camera->near = desc->near;
+    camera->far = desc->far;
+    
+    return camera;
+}
+
+void rgfx_camera_destroy(rgfx_camera_t* camera) {
+    if (camera) {
+        if (active_camera == camera) {
+            active_camera = NULL;
+        }
+        free(camera);
+    }
+}
+
+void rgfx_camera_set_position(rgfx_camera_t* camera, vec3 position) {
+    if (camera) {
+        memcpy(camera->position, position, sizeof(vec3));
+    }
+}
+
+void rgfx_camera_set_target(rgfx_camera_t* camera, vec3 target) {
+    if (camera) {
+        memcpy(camera->target, target, sizeof(vec3));
+    }
+}
+
+void rgfx_camera_get_matrices(const rgfx_camera_t* camera, mat4x4 view, mat4x4 projection) {
+    if (!camera) {
+        mat4x4_identity(view);
+        mat4x4_identity(projection);
+        return;
+    }
+    
+    // Calculate view matrix
+    mat4x4_look_at(view, camera->position, camera->target, camera->up);
+    
+    // Calculate projection matrix
+    mat4x4_perspective(projection, camera->fov, camera->aspect, camera->near, camera->far);
+}
+
+void rgfx_set_active_camera(rgfx_camera_t* camera) {
+    active_camera = camera;
 }

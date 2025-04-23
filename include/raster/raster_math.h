@@ -14,7 +14,7 @@ extern "C"
 
 #include <stdbool.h>
 #include <math.h>
-#include "linmath.h" // Use the local linmath.h
+#include "linmath.h"
 
     typedef struct
     {

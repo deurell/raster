@@ -25,6 +25,9 @@ static struct
     rapp_draw_fn    draw_callback;
     rapp_cleanup_fn cleanup_callback;
 
+    // Camera
+    rgfx_camera_t* main_camera;
+
     // Quit flag
     bool should_quit;
 } app_state = { 0 };
@@ -121,6 +124,16 @@ bool rapp_init(const rapp_desc_t* desc)
         return false;
     }
 
+    // Create main camera
+    app_state.main_camera = rgfx_camera_create(&desc->camera);
+    if (!app_state.main_camera) {
+        printf("Failed to create main camera\n");
+        rgfx_shutdown();
+        glfwTerminate();
+        return false;
+    }
+    rgfx_set_active_camera(app_state.main_camera);
+
     // Set input callbacks
     glfwSetKeyCallback(app_state.window, _rinput_key_callback);
     glfwSetMouseButtonCallback(app_state.window, _rinput_mouse_button_callback);
@@ -195,6 +208,12 @@ void rapp_quit(void)
 
 void rapp_shutdown(void)
 {
+    // Cleanup camera
+    if (app_state.main_camera) {
+        rgfx_camera_destroy(app_state.main_camera);
+        app_state.main_camera = NULL;
+    }
+
     // Shutdown graphics subsystem
     rgfx_shutdown();
 
@@ -217,4 +236,9 @@ float rapp_get_time(void)
 float rapp_get_delta_time(void)
 {
     return app_state.deltaTime;
+}
+
+rgfx_camera_t* rapp_get_main_camera(void)
+{
+    return app_state.main_camera;
 }
