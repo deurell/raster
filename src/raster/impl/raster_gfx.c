@@ -11,6 +11,11 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
 
+#define STB_TRUETYPE_IMPLEMENTATION
+#include <stb/stb_truetype.h>
+
+#define RGFX_MAX_TEXT_LENGTH 256
+
 struct rgfx_sprite
 {
     unsigned int VAO;
@@ -22,7 +27,6 @@ struct rgfx_sprite
     vec3         position;
     vec2         size;
     color        color;
-    // Uniform system
     rgfx_uniform_t uniforms[RGFX_MAX_UNIFORMS];
     int uniform_count;
 };
@@ -36,6 +40,24 @@ struct rgfx_camera
     float aspect;
     float near;
     float far;
+};
+
+struct rgfx_text
+{
+    unsigned int VAO;
+    unsigned int VBO;
+    unsigned int EBO;
+    unsigned int shaderProgram;
+    unsigned int textureID;
+    stbtt_fontinfo font_info;
+    unsigned char* font_buffer;
+    unsigned char* font_bitmap;
+    char text[RGFX_MAX_TEXT_LENGTH];
+    float font_size;
+    vec3 position;
+    color text_color;
+    int bitmap_width;
+    int bitmap_height;
 };
 
 static rgfx_camera_t* active_camera = NULL;
@@ -895,4 +917,412 @@ void rgfx_sprite_set_uniform_vec4(rgfx_sprite_t* sprite, const char* name, vec4 
         vec4_dup(sprite->uniforms[sprite->uniform_count].vec4_val, value);
         sprite->uniform_count++;
     }
+}
+
+// Text implementation with stb_truetype
+rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc)
+{
+    if (!desc || !desc->font_path || !desc->text)
+        return NULL;
+
+    rgfx_text_t* text = (rgfx_text_t*)malloc(sizeof(rgfx_text_t));
+    if (!text)
+        return NULL;
+
+    // Initialize basic properties
+    vec3_dup(text->position, desc->position);
+    text->text_color = desc->text_color;
+    text->font_size = desc->font_size;
+    
+    // Copy text with length limit
+    strncpy(text->text, desc->text, RGFX_MAX_TEXT_LENGTH - 1);
+    text->text[RGFX_MAX_TEXT_LENGTH - 1] = '\0';
+
+    // Load font file
+    FILE* font_file = fopen(desc->font_path, "rb");
+    if (!font_file) {
+        rlog_error("Failed to open font file: %s", desc->font_path);
+        free(text);
+        return NULL;
+    }
+
+    // Get file size
+    fseek(font_file, 0, SEEK_END);
+    long font_size = ftell(font_file);
+    fseek(font_file, 0, SEEK_SET);
+
+    // Load entire TTF file into memory
+    text->font_buffer = (unsigned char*)malloc(font_size);
+    if (!text->font_buffer) {
+        rlog_error("Failed to allocate memory for font");
+        fclose(font_file);
+        free(text);
+        return NULL;
+    }
+
+    size_t bytes_read = fread(text->font_buffer, 1, font_size, font_file);
+    fclose(font_file);
+
+    if (bytes_read != (size_t)font_size) {
+        rlog_error("Failed to read font file");
+        free(text->font_buffer);
+        free(text);
+        return NULL;
+    }
+
+    // Initialize font
+    if (!stbtt_InitFont(&text->font_info, text->font_buffer, 0)) {
+        rlog_error("Failed to initialize font");
+        free(text->font_buffer);
+        free(text);
+        return NULL;
+    }
+
+    // Create bitmap for the text
+    text->bitmap_width = 0;
+    text->bitmap_height = 0;
+    text->font_bitmap = NULL;
+    
+    // Generate the bitmap for the text
+    if (!rgfx_text_update_bitmap(text)) {
+        free(text->font_buffer);
+        free(text);
+        return NULL;
+    }
+
+    // Load shader files instead of using embedded shaders
+    char* vertexSource = rgfx_load_shader_source("assets/shaders/text.vert");
+    if (!vertexSource) {
+        rlog_error("Failed to load text vertex shader");
+        free(text->font_buffer);
+        free(text->font_bitmap);
+        free(text);
+        return NULL;
+    }
+
+    char* fragmentSource = rgfx_load_shader_source("assets/shaders/text.frag");
+    if (!fragmentSource) {
+        rlog_error("Failed to load text fragment shader");
+        free(vertexSource);
+        free(text->font_buffer);
+        free(text->font_bitmap);
+        free(text);
+        return NULL;
+    }
+
+    // Create shader program
+    text->shaderProgram = _create_shader_program(vertexSource, fragmentSource);
+    if (text->shaderProgram == 0) {
+        free(text->font_buffer);
+        free(text->font_bitmap);
+        free(text);
+        return NULL;
+    }
+
+    // Setup VAO, VBO, EBO for rendering
+    float vertices[] = {
+        // positions        // texture coords
+        0.0f, 1.0f, 0.0f,   0.0f, 0.0f,  // top left
+        1.0f, 1.0f, 0.0f,   1.0f, 0.0f,  // top right
+        1.0f, 0.0f, 0.0f,   1.0f, 1.0f,  // bottom right
+        0.0f, 0.0f, 0.0f,   0.0f, 1.0f   // bottom left
+    };
+
+    unsigned int indices[] = {
+        0, 1, 2,   // first triangle
+        2, 3, 0    // second triangle
+    };
+
+    glGenVertexArrays(1, &text->VAO);
+    glGenBuffers(1, &text->VBO);
+    glGenBuffers(1, &text->EBO);
+
+    glBindVertexArray(text->VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, text->VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, text->EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    // Position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    
+    // Texture coord attribute
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    // Generate texture for text
+    glGenTextures(1, &text->textureID);
+    glBindTexture(GL_TEXTURE_2D, text->textureID);
+    
+    // Set texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // Upload bitmap to texture
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, text->bitmap_width, text->bitmap_height, 
+                0, GL_RED, GL_UNSIGNED_BYTE, text->font_bitmap);
+    
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    return text;
+}
+
+bool rgfx_text_update_bitmap(rgfx_text_t* text)
+{
+    if (!text)
+        return false;
+
+    // Free existing bitmap if it exists
+    if (text->font_bitmap) {
+        free(text->font_bitmap);
+        text->font_bitmap = NULL;
+    }
+
+    // Calculate scale for font size
+    float scale = stbtt_ScaleForPixelHeight(&text->font_info, text->font_size);
+    
+    // Calculate text dimensions
+    int ascent, descent, line_gap;
+    stbtt_GetFontVMetrics(&text->font_info, &ascent, &descent, &line_gap);
+    
+    ascent = (int)(ascent * scale);
+    descent = (int)(descent * scale);
+    
+    int x = 0;
+    int width = 0;
+    int max_height = ascent - descent;
+    
+    // First pass: calculate total width
+    for (const char* p = text->text; *p; p++) {
+        int advance, lsb;
+        stbtt_GetCodepointHMetrics(&text->font_info, *p, &advance, &lsb);
+        width += (int)(advance * scale);
+        
+        // Add kerning with next character
+        if (*(p+1)) {
+            width += (int)(stbtt_GetCodepointKernAdvance(&text->font_info, *p, *(p+1)) * scale);
+        }
+    }
+    
+    // Create bitmap with some padding
+    text->bitmap_width = width + 4;  // Add some padding
+    text->bitmap_height = max_height + 4;
+    
+    text->font_bitmap = (unsigned char*)calloc(text->bitmap_width * text->bitmap_height, 1);
+    if (!text->font_bitmap) {
+        rlog_error("Failed to allocate memory for text bitmap");
+        return false;
+    }
+    
+    // Second pass: render each character into the bitmap
+    x = 2;  // Start with a little padding
+    int y = ascent + 2;  // Baseline position with padding
+    
+    for (const char* p = text->text; *p; p++) {
+        // Get character bitmap
+        int c_x1, c_y1, c_x2, c_y2;
+        stbtt_GetCodepointBitmapBox(&text->font_info, *p, scale, scale, &c_x1, &c_y1, &c_x2, &c_y2);
+        
+        // Render character
+        int w, h, xoff, yoff;
+        unsigned char* bitmap = stbtt_GetCodepointBitmap(
+            &text->font_info, scale, scale, *p, &w, &h, &xoff, &yoff);
+            
+        // Copy character bitmap to our text bitmap
+        for (int row = 0; row < h; row++) {
+            for (int col = 0; col < w; col++) {
+                if (x + col + xoff >= 0 && x + col + xoff < text->bitmap_width &&
+                    y + row + yoff >= 0 && y + row + yoff < text->bitmap_height) {
+                    text->font_bitmap[(y + row + yoff) * text->bitmap_width + (x + col + xoff)] 
+                        = bitmap[row * w + col];
+                }
+            }
+        }
+        
+        // Move to next character position
+        int advance, lsb;
+        stbtt_GetCodepointHMetrics(&text->font_info, *p, &advance, &lsb);
+        x += (int)(advance * scale);
+        
+        // Add kerning with next character
+        if (*(p+1)) {
+            x += (int)(stbtt_GetCodepointKernAdvance(&text->font_info, *p, *(p+1)) * scale);
+        }
+        
+        // Free character bitmap
+        stbtt_FreeBitmap(bitmap, NULL);
+    }
+    
+    return true;
+}
+
+void rgfx_text_set_text(rgfx_text_t* text, const char* new_text)
+{
+    if (!text || !new_text)
+        return;
+        
+    // Copy new text with length limit
+    strncpy(text->text, new_text, RGFX_MAX_TEXT_LENGTH - 1);
+    text->text[RGFX_MAX_TEXT_LENGTH - 1] = '\0';
+    
+    // Update the bitmap
+    if (rgfx_text_update_bitmap(text)) {
+        // Update texture with new bitmap
+        glBindTexture(GL_TEXTURE_2D, text->textureID);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, text->bitmap_width, text->bitmap_height, 
+                    0, GL_RED, GL_UNSIGNED_BYTE, text->font_bitmap);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+}
+
+void rgfx_text_draw(rgfx_text_t* text)
+{
+    if (!text)
+        return;
+
+    // Use shader program
+    glUseProgram(text->shaderProgram);
+
+    // Use a larger scale factor for bigger text in world space
+    float scale_factor = 0.015f;  // Increased 3x for better visibility
+    
+    // Calculate dimensions
+    float width = text->bitmap_width * scale_factor;
+    float height = text->bitmap_height * scale_factor;
+    
+    // Center text horizontally at its position
+    glUniform3f(glGetUniformLocation(text->shaderProgram, "uPosition"),
+                text->position[0] - (width/2), 
+                text->position[1], 
+                text->position[2]);
+    
+    // Set size uniform
+    glUniform2f(glGetUniformLocation(text->shaderProgram, "uSize"), width, height);
+    
+    // Set color uniform
+    glUniform3f(glGetUniformLocation(text->shaderProgram, "uColor"),
+                text->text_color.r, text->text_color.g, text->text_color.b);
+
+    // Handle camera matrices
+    if (active_camera) {
+        mat4x4 view, projection;
+        rgfx_camera_get_matrices(active_camera, view, projection);
+        
+        glUniformMatrix4fv(glGetUniformLocation(text->shaderProgram, "uView"), 
+                           1, GL_FALSE, (float*)view);
+        glUniformMatrix4fv(glGetUniformLocation(text->shaderProgram, "uProjection"), 
+                           1, GL_FALSE, (float*)projection);
+    } else {
+        mat4x4 identity;
+        mat4x4_identity(identity);
+        glUniformMatrix4fv(glGetUniformLocation(text->shaderProgram, "uView"), 
+                           1, GL_FALSE, (float*)identity);
+        glUniformMatrix4fv(glGetUniformLocation(text->shaderProgram, "uProjection"), 
+                           1, GL_FALSE, (float*)identity);
+    }
+
+    // Bind texture
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, text->textureID);
+    glUniform1i(glGetUniformLocation(text->shaderProgram, "uTexture"), 0);
+
+    // Draw text quad
+    glBindVertexArray(text->VAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void rgfx_text_destroy(rgfx_text_t* text)
+{
+    if (!text)
+        return;
+
+    // Delete OpenGL resources
+    glDeleteVertexArrays(1, &text->VAO);
+    glDeleteBuffers(1, &text->VBO);
+    glDeleteBuffers(1, &text->EBO);
+    glDeleteTextures(1, &text->textureID);
+    glDeleteProgram(text->shaderProgram);
+
+    // Free memory
+    if (text->font_buffer) {
+        free(text->font_buffer);
+    }
+    
+    if (text->font_bitmap) {
+        free(text->font_bitmap);
+    }
+
+    free(text);
+}
+
+// Setter and getter functions
+void rgfx_text_set_position(rgfx_text_t* text, vec3 position)
+{
+    if (text) {
+        vec3_dup(text->position, position);
+    }
+}
+
+void rgfx_text_set_color(rgfx_text_t* text, color color)
+{
+    if (text) {
+        text->text_color = color;
+    }
+}
+
+void rgfx_text_set_font_size(rgfx_text_t* text, float size)
+{
+    if (!text || size <= 0)
+        return;
+        
+    text->font_size = size;
+    
+    // Update the bitmap with new font size
+    if (rgfx_text_update_bitmap(text)) {
+        // Update texture
+        glBindTexture(GL_TEXTURE_2D, text->textureID);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, text->bitmap_width, text->bitmap_height, 
+                    0, GL_RED, GL_UNSIGNED_BYTE, text->font_bitmap);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+}
+
+void rgfx_text_get_position(rgfx_text_t* text, vec3 out_position)
+{
+    if (text && out_position) {
+        vec3_dup(out_position, text->position);
+    } else if (out_position) {
+        out_position[0] = 0.0f;
+        out_position[1] = 0.0f;
+        out_position[2] = 0.0f;
+    }
+}
+
+color rgfx_text_get_color(rgfx_text_t* text)
+{
+    color result = {0};
+    if (text) {
+        result = text->text_color;
+    }
+    return result;
+}
+
+float rgfx_text_get_font_size(rgfx_text_t* text)
+{
+    return text ? text->font_size : 0.0f;
+}
+
+const char* rgfx_text_get_text(rgfx_text_t* text)
+{
+    return text ? text->text : NULL;
 }
