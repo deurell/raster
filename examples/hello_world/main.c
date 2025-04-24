@@ -116,11 +116,13 @@ int main(void)
 
     // Create text
     rgfx_text_desc_t text_desc = {
-        .font_path  = "assets/fonts/roboto.ttf",
-        .font_size  = 128.0f,
-        .text       = "RASTER",
-        .position   = { 0.0f, 0.0f, -1.0f },
-        .text_color = { 1.0f, 1.0f, 1.0f }
+        .font_path     = "assets/fonts/roboto.ttf",
+        .font_size     = 64.0f,
+        .text          = "RASTER",
+        .position      = { 0.0f, 0.0f, 0.0f },
+        .text_color    = { 1.0f, 1.0f, 1.0f },
+        .line_spacing  = 1.2f,
+        .alignment     = RGFX_TEXT_ALIGN_CENTER
     };
 
     G.text = rgfx_text_create(&text_desc);
