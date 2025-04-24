@@ -62,7 +62,7 @@ extern "C"
         const char* texture_path;         // Optional: Path to texture file (NULL for no texture)
         // Uniform system
         rgfx_uniform_t uniforms[RGFX_MAX_UNIFORMS];
-        int uniform_count;
+        int uniform_count;                // Optional: Will be auto-calculated if set to 0
     } rgfx_sprite_desc_t;
 
     // Sprite API

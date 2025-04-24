@@ -107,7 +107,6 @@ int main(void)
         .color                = { 1.0f, 1.0f, 1.0f },
         .vertex_shader_path   = "assets/shaders/rasterbar.vert",
         .fragment_shader_path = "assets/shaders/rasterbar.frag",
-        .uniform_count        = 2,
         .uniforms             = { { .name = "uFrequency", .type = RGFX_UNIFORM_FLOAT, .float_val = 5.0f },
                                   { .name = "uAmplitude", .type = RGFX_UNIFORM_FLOAT, .float_val = 0.5f } }
     };

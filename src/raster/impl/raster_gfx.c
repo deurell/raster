@@ -232,10 +232,18 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     // Initialize uniform system
     sprite->uniform_count = 0;
     if (desc->uniform_count > 0) {
-        // Copy uniforms from descriptor
+        // Copy uniforms from descriptor using the provided count
         sprite->uniform_count = desc->uniform_count > RGFX_MAX_UNIFORMS ? RGFX_MAX_UNIFORMS : desc->uniform_count;
         for (int i = 0; i < sprite->uniform_count; i++) {
             sprite->uniforms[i] = desc->uniforms[i];
+        }
+    } else {
+        // Auto-calculate the uniform count by finding the last non-empty uniform
+        for (int i = 0; i < RGFX_MAX_UNIFORMS; i++) {
+            if (desc->uniforms[i].name != NULL) {
+                sprite->uniforms[sprite->uniform_count] = desc->uniforms[i];
+                sprite->uniform_count++;
+            }
         }
     }
 
