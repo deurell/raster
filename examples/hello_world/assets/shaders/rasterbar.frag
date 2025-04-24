@@ -16,7 +16,7 @@ void main()
     if (uUseTexture) {
         vec4 texColor = texture(uTexture, TexCoord);
         if (texColor.a < 0.01) {
-            discard; // Skip rendering fully transparent pixels
+            discard;
         }
         FragColor = texColor * vec4(barColor * uColor, 1.0);
     } else {

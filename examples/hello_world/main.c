@@ -55,6 +55,7 @@ void game_cleanup(void)
     rlog_info("Cleaning up game resources");
     rgfx_sprite_destroy(G.sprite_one);
     rgfx_sprite_destroy(G.sprite_two);
+    rgfx_sprite_destroy(G.sprite_rasterbar);
 }
 
 int main(void)
