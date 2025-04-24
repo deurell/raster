@@ -43,6 +43,9 @@ extern "C"
 
     // Camera functions
     rgfx_camera_t* rapp_get_main_camera(void);
+    
+    // Window functions
+    void rapp_get_window_size(int* width, int* height);
 
 #ifdef __cplusplus
 }

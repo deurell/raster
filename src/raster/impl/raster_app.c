@@ -126,7 +126,8 @@ bool rapp_init(const rapp_desc_t* desc)
 
     // Create main camera
     app_state.main_camera = rgfx_camera_create(&desc->camera);
-    if (!app_state.main_camera) {
+    if (!app_state.main_camera)
+    {
         printf("Failed to create main camera\n");
         rgfx_shutdown();
         glfwTerminate();
@@ -209,7 +210,8 @@ void rapp_quit(void)
 void rapp_shutdown(void)
 {
     // Cleanup camera
-    if (app_state.main_camera) {
+    if (app_state.main_camera)
+    {
         rgfx_camera_destroy(app_state.main_camera);
         app_state.main_camera = NULL;
     }
@@ -241,4 +243,17 @@ float rapp_get_delta_time(void)
 rgfx_camera_t* rapp_get_main_camera(void)
 {
     return app_state.main_camera;
+}
+
+void rapp_get_window_size(int* width, int* height)
+{
+    if (app_state.window)
+    {
+        glfwGetWindowSize(app_state.window, width, height);
+    }
+    else if (width && height)
+    {
+        *width  = 0;
+        *height = 0;
+    }
 }

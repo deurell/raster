@@ -9,10 +9,10 @@ typedef struct
 {
     rgfx_sprite_t* red_sprite;
     rgfx_sprite_t* green_sprite;
-    rapp_desc_t    app_desc; // Store app descriptor
-    float          time;
-    float          bounce_speed;
-    float          orbit_speed;
+    // rapp_desc_t    app_desc; // Remove app descriptor from game state
+    float time;
+    float bounce_speed;
+    float orbit_speed;
 } game_state_t;
 
 static game_state_t G;
@@ -31,7 +31,7 @@ void game_update(float dt)
     rgfx_camera_t* camera = rapp_get_main_camera();
     if (camera)
     {
-        vec3 camera_pos = { 2.0f * sin(G.time), 0.0f, 5.0f + 1 * cos(G.time) };
+        vec3 camera_pos = { 2.0f * sin(G.time), 0.0f, 3.0f + 1 * cos(G.time) };
         rgfx_camera_set_position(camera, camera_pos);
     }
 
@@ -59,24 +59,17 @@ void game_cleanup(void)
 
 int main(void)
 {
-    rapp_desc_t app_desc = { 
-        .window = { .title = "Raster Engine Demo", .width = 800, .height = 600 },
-        .update_fn = game_update,
-        .draw_fn = game_draw,
-        .cleanup_fn = game_cleanup,
-        .camera = { 
-            .position = { 0.0f, 0.0f, 5.0f },
-            .target = { 0.0f, 0.0f, 0.0f },
-            .up = { 0.0f, 1.0f, 0.0f },
-            .fov = 90.0f * (3.14159f / 180.0f),
-            .aspect = 800.0f / 600.0f,
-            .near = 0.1f,
-            .far = 100.0f 
-        } 
-    };
-
-    // Store app_desc in game state
-    G.app_desc = app_desc;
+    rapp_desc_t app_desc = { .window     = { .title = "Raster Engine Demo", .width = 800, .height = 600 },
+                             .update_fn  = game_update,
+                             .draw_fn    = game_draw,
+                             .cleanup_fn = game_cleanup,
+                             .camera     = { .position = { 0.0f, 0.0f, 5.0f },
+                                             .target   = { 0.0f, 0.0f, 0.0f },
+                                             .up       = { 0.0f, 1.0f, 0.0f },
+                                             .fov      = 90.0f * (3.14159f / 180.0f),
+                                             .aspect   = 800.0f / 600.0f,
+                                             .near     = 0.1f,
+                                             .far      = 100.0f } };
 
     if (!rapp_init(&app_desc))
     {
