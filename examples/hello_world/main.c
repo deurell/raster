@@ -7,12 +7,12 @@
 
 typedef struct
 {
-    rgfx_sprite_t* red_sprite;
-    rgfx_sprite_t* green_sprite;
-    // rapp_desc_t    app_desc; // Remove app descriptor from game state
-    float time;
-    float bounce_speed;
-    float orbit_speed;
+    rgfx_sprite_t* sprite_one;
+    rgfx_sprite_t* sprite_two;
+    rgfx_sprite_t* sprite_rasterbar;
+    float          time;
+    float          bounce_speed;
+    float          orbit_speed;
 } game_state_t;
 
 static game_state_t G;
@@ -22,16 +22,16 @@ void game_update(float dt)
     G.time += dt;
 
     // Update red sprite position
-    vec3 sprite_pos = { 0.0f, 0.8f * sin(G.time * G.bounce_speed), 0.0f };
-    rgfx_sprite_set_position(G.red_sprite, sprite_pos);
+    vec3 sprite_pos = { 0.0f, 0.8f * sin(G.time * G.bounce_speed), 2.0f * sin(G.time) };
+    rgfx_sprite_set_position(G.sprite_one, sprite_pos);
 
-    vec3 orbit_pos = { 0.5f * cos(G.time * G.orbit_speed), 1.5f * sin(G.time * G.orbit_speed), 0.0f };
-    rgfx_sprite_set_position(G.green_sprite, orbit_pos);
+    vec3 orbit_pos = { 0.5f * cos(G.time * G.orbit_speed), 1.5f * sin(G.time * G.orbit_speed), 2.0f * sin(G.time) };
+    rgfx_sprite_set_position(G.sprite_two, orbit_pos);
 
     rgfx_camera_t* camera = rapp_get_main_camera();
     if (camera)
     {
-        vec3 camera_pos = { 2.0f * sin(G.time), 0.0f, 3.0f + 1 * cos(G.time) };
+        vec3 camera_pos = { 0.0f, 0.0f, 5.0f };
         rgfx_camera_set_position(camera, camera_pos);
     }
 
@@ -43,18 +43,18 @@ void game_update(float dt)
 
 void game_draw(void)
 {
-    color bg_color = { 0.13f, 0.56f, 0.88f };
+    color bg_color = { 0.0f, 0.53f, 0.94f };
     rgfx_clear_color(bg_color);
-
-    rgfx_sprite_draw(G.red_sprite);
-    rgfx_sprite_draw(G.green_sprite);
+    rgfx_sprite_draw(G.sprite_rasterbar);
+    rgfx_sprite_draw(G.sprite_one);
+    rgfx_sprite_draw(G.sprite_two);
 }
 
 void game_cleanup(void)
 {
     rlog_info("Cleaning up game resources");
-    rgfx_sprite_destroy(G.red_sprite);
-    rgfx_sprite_destroy(G.green_sprite);
+    rgfx_sprite_destroy(G.sprite_one);
+    rgfx_sprite_destroy(G.sprite_two);
 }
 
 int main(void)
@@ -84,18 +84,26 @@ int main(void)
                                        .color                = { 1.0f, 1.0f, 1.0f },
                                        .vertex_shader_path   = "assets/shaders/basic_texture.vert",
                                        .fragment_shader_path = "assets/shaders/basic_texture.frag",
-                                       .texture_path         = "assets/textures/googly-e.png" };
+                                       .texture_path         = "assets/textures/googly-a.png" };
 
-    G.red_sprite = rgfx_sprite_create(&sprite_desc);
+    G.sprite_one = rgfx_sprite_create(&sprite_desc);
 
     rgfx_sprite_desc_t green_sprite_desc = { .position             = { 0.5f, 0.0f, 0.0f },
                                              .size                 = { 1.0f, 1.0f },
                                              .color                = { 1.0f, 1.0f, 1.0f },
                                              .vertex_shader_path   = "assets/shaders/basic_texture.vert",
                                              .fragment_shader_path = "assets/shaders/basic_texture.frag",
-                                             .texture_path         = "assets/textures/googly-b.png" };
+                                             .texture_path         = "assets/textures/googly-e.png" };
 
-    G.green_sprite = rgfx_sprite_create(&green_sprite_desc);
+    G.sprite_two = rgfx_sprite_create(&green_sprite_desc);
+
+    rgfx_sprite_desc_t rasterbar_desc = { .position             = { 0.0f, 0.0f, 0.0f },
+                                          .size                 = { 100.0f, 0.5f },
+                                          .color                = { 1.0f, 1.0f, 1.0f },
+                                          .vertex_shader_path   = "assets/shaders/rasterbar.vert",
+                                          .fragment_shader_path = "assets/shaders/rasterbar.frag" };
+
+    G.sprite_rasterbar = rgfx_sprite_create(&rasterbar_desc);
 
     G.time         = 0.0f;
     G.bounce_speed = 2.2f;

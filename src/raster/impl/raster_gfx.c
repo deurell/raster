@@ -1,5 +1,6 @@
 #include "raster/raster_gfx.h"
 #include "raster/raster_math.h"
+#include "raster/raster_app.h"
 #include "raster/raster_log.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -8,27 +9,26 @@
 #include <string.h>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb/stb_image.h> // Include without implementation
+#include <stb/stb_image.h>
 
-// Internal sprite structure
 struct rgfx_sprite
 {
-    unsigned int  VAO;
-    unsigned int  VBO;
-    unsigned int  EBO;
-    unsigned int  shaderProgram;
-    unsigned int  textureID;
-    bool          hasTexture;
-    vec3          position;
-    vec2          size;
-    color         color;
+    unsigned int VAO;
+    unsigned int VBO;
+    unsigned int EBO;
+    unsigned int shaderProgram;
+    unsigned int textureID;
+    bool         hasTexture;
+    vec3         position;
+    vec2         size;
+    color        color;
 };
 
-// Camera structure definition
-struct rgfx_camera {
-    vec3 position;
-    vec3 forward;  // Direction the camera is looking
-    vec3 up;
+struct rgfx_camera
+{
+    vec3  position;
+    vec3  forward;
+    vec3  up;
     float fov;
     float aspect;
     float near;
@@ -37,7 +37,6 @@ struct rgfx_camera {
 
 static rgfx_camera_t* active_camera = NULL;
 
-// Load shader source from file
 char* rgfx_load_shader_source(const char* filepath)
 {
     if (!filepath)
@@ -169,9 +168,13 @@ bool rgfx_init(void)
         return false;
     }
 
-    // Enable blending for transparency
+    // Enable blending for transparency with proper blend factors
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // Enable depth testing for proper z-ordering
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL); // Use LEQUAL to allow same-depth sprites to render
 
     return true;
 }
@@ -179,12 +182,13 @@ bool rgfx_init(void)
 void rgfx_clear(float r, float g, float b)
 {
     glClearColor(r, g, b, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear both color and depth buffers
 }
 
 void rgfx_clear_color(color color)
 {
-    rgfx_clear(color.r, color.g, color.b);
+    glClearColor(color.r, color.g, color.b, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear both color and depth buffers
 }
 
 void rgfx_shutdown(void)
@@ -364,19 +368,47 @@ void rgfx_sprite_destroy(rgfx_sprite_t* sprite)
 
 void rgfx_sprite_draw(rgfx_sprite_t* sprite)
 {
-    if (!sprite) return;
+    if (!sprite)
+    {
+        return;
+    }
 
+    // Use shader program
     glUseProgram(sprite->shaderProgram);
 
+    // Set common uniforms for position, size, and color
+    glUniform3f(glGetUniformLocation(sprite->shaderProgram, "uPosition"),
+                sprite->position[0],
+                sprite->position[1],
+                sprite->position[2]);
+    glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uSize"), sprite->size[0], sprite->size[1]);
+    glUniform3f(
+        glGetUniformLocation(sprite->shaderProgram, "uColor"), sprite->color.r, sprite->color.g, sprite->color.b);
+
+    // Add uniform for time - pass current time to all shaders
+    float currentTime = rapp_get_time();
+    glUniform1f(glGetUniformLocation(sprite->shaderProgram, "uTime"), currentTime);
+
+    // Check if the uniform exists before setting it
+    // This handles the uUseTexture uniform which is only in the custom shader
+    int useTextureLocation = glGetUniformLocation(sprite->shaderProgram, "uUseTexture");
+    if (useTextureLocation != -1)
+    {
+        glUniform1i(useTextureLocation, sprite->hasTexture ? 1 : 0);
+    }
+
     // Get and set camera matrices if there's an active camera
-    if (active_camera) {
+    if (active_camera)
+    {
         mat4x4 view, projection;
         rgfx_camera_get_matrices(active_camera, view, projection);
-        
+
         // Set view and projection matrices in shader
         glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uView"), 1, GL_FALSE, (float*)view);
         glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uProjection"), 1, GL_FALSE, (float*)projection);
-    } else {
+    }
+    else
+    {
         // Use identity matrices if no camera is active
         mat4x4 identity;
         mat4x4_identity(identity);
@@ -384,26 +416,26 @@ void rgfx_sprite_draw(rgfx_sprite_t* sprite)
         glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uProjection"), 1, GL_FALSE, (float*)identity);
     }
 
-    // Set common uniforms for position, size, and color
-    glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uPosition"), sprite->position[0], sprite->position[1]);
-    glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uSize"), sprite->size[0], sprite->size[1]);
-    glUniform3f(glGetUniformLocation(sprite->shaderProgram, "uColor"), sprite->color.r, sprite->color.g, sprite->color.b);
-
     // Handle texture if it exists
-    if (sprite->hasTexture && sprite->textureID > 0) {
+    if (sprite->hasTexture && sprite->textureID > 0)
+    {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, sprite->textureID);
-        
+
         int textureLoc = glGetUniformLocation(sprite->shaderProgram, "uTexture");
-        if (textureLoc != -1) {
+        if (textureLoc != -1)
+        {
             glUniform1i(textureLoc, 0);
         }
-        
+
         int useTextureLoc = glGetUniformLocation(sprite->shaderProgram, "uUseTexture");
-        if (useTextureLoc != -1) {
+        if (useTextureLoc != -1)
+        {
             glUniform1i(useTextureLoc, 1);
         }
-    } else if (glGetUniformLocation(sprite->shaderProgram, "uUseTexture") != -1) {
+    }
+    else if (glGetUniformLocation(sprite->shaderProgram, "uUseTexture") != -1)
+    {
         glUniform1i(glGetUniformLocation(sprite->shaderProgram, "uUseTexture"), 0);
     }
 
@@ -411,7 +443,8 @@ void rgfx_sprite_draw(rgfx_sprite_t* sprite)
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
-    if (sprite->hasTexture && sprite->textureID > 0) {
+    if (sprite->hasTexture && sprite->textureID > 0)
+    {
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 }
@@ -478,7 +511,7 @@ void rgfx_sprite_get_size(rgfx_sprite_t* sprite, vec2 out_size)
 
 color rgfx_sprite_get_color(rgfx_sprite_t* sprite)
 {
-    color result = {0};
+    color result = { 0 };
     if (sprite)
     {
         result = sprite->color;
@@ -568,120 +601,141 @@ unsigned int rgfx_sprite_get_texture_id(rgfx_sprite_t* sprite)
     return sprite ? sprite->textureID : 0;
 }
 
-rgfx_camera_t* rgfx_camera_create(const rgfx_camera_desc_t* desc) {
-    if (!desc) return NULL;
-    
+rgfx_camera_t* rgfx_camera_create(const rgfx_camera_desc_t* desc)
+{
+    if (!desc)
+        return NULL;
+
     rgfx_camera_t* camera = (rgfx_camera_t*)malloc(sizeof(rgfx_camera_t));
-    if (!camera) return NULL;
-    
+    if (!camera)
+        return NULL;
+
     vec3_dup(camera->position, desc->position);
-    
+
     // Calculate forward direction from position to target
     vec3 direction;
     vec3_sub(direction, desc->target, desc->position);
     vec3_norm(camera->forward, direction); // Store normalized direction
-    
+
     vec3_dup(camera->up, desc->up);
-    camera->fov = desc->fov;
+    camera->fov    = desc->fov;
     camera->aspect = desc->aspect;
-    camera->near = desc->near;
-    camera->far = desc->far;
-    
+    camera->near   = desc->near;
+    camera->far    = desc->far;
+
     return camera;
 }
 
-void rgfx_camera_destroy(rgfx_camera_t* camera) {
-    if (camera) {
-        if (active_camera == camera) {
+void rgfx_camera_destroy(rgfx_camera_t* camera)
+{
+    if (camera)
+    {
+        if (active_camera == camera)
+        {
             active_camera = NULL;
         }
         free(camera);
     }
 }
 
-void rgfx_camera_set_position(rgfx_camera_t* camera, vec3 position) {
-    if (camera) {
+void rgfx_camera_set_position(rgfx_camera_t* camera, vec3 position)
+{
+    if (camera)
+    {
         vec3_dup(camera->position, position);
     }
 }
 
-void rgfx_camera_set_target(rgfx_camera_t* camera, vec3 target) {
-    if (camera) {
+void rgfx_camera_set_target(rgfx_camera_t* camera, vec3 target)
+{
+    if (camera)
+    {
         // Calculate direction vector from camera position to target
         vec3 direction;
         direction[0] = target[0] - camera->position[0];
         direction[1] = target[1] - camera->position[1];
         direction[2] = target[2] - camera->position[2];
-        
+
         // Normalize the direction vector
         vec3_norm(direction, direction);
-        
+
         // Set the camera's forward direction
         vec3_dup(camera->forward, direction);
     }
 }
 
-void rgfx_camera_get_matrices(const rgfx_camera_t* camera, mat4x4 view, mat4x4 projection) {
-    if (!camera) {
+void rgfx_camera_get_matrices(const rgfx_camera_t* camera, mat4x4 view, mat4x4 projection)
+{
+    if (!camera)
+    {
         mat4x4_identity(view);
         mat4x4_identity(projection);
         return;
     }
-    
+
     // Calculate target point by adding forward direction to position
     vec3 target;
     vec3_add(target, camera->position, camera->forward);
-    
+
     // Calculate view matrix using position and target point
     mat4x4_look_at(view, camera->position, target, camera->up);
-    
+
     // Calculate projection matrix
     mat4x4_perspective(projection, camera->fov, camera->aspect, camera->near, camera->far);
 }
 
-void rgfx_set_active_camera(rgfx_camera_t* camera) {
+void rgfx_set_active_camera(rgfx_camera_t* camera)
+{
     active_camera = camera;
 }
 
-void rgfx_camera_set_direction(rgfx_camera_t* camera, vec3 direction) {
-    if (camera) {
+void rgfx_camera_set_direction(rgfx_camera_t* camera, vec3 direction)
+{
+    if (camera)
+    {
         vec3_norm(camera->forward, direction); // Normalize the direction vector
     }
 }
 
-void rgfx_camera_move(rgfx_camera_t* camera, vec3 offset) {
-    if (camera) {
+void rgfx_camera_move(rgfx_camera_t* camera, vec3 offset)
+{
+    if (camera)
+    {
         vec3_add(camera->position, camera->position, offset);
     }
 }
 
-void rgfx_camera_rotate(rgfx_camera_t* camera, float yaw, float pitch) {
-    if (!camera) return;
-    
+void rgfx_camera_rotate(rgfx_camera_t* camera, float yaw, float pitch)
+{
+    if (!camera)
+        return;
+
     // Convert angles to radians
-    float yaw_rad = yaw * (3.14159f / 180.0f);
+    float yaw_rad   = yaw * (3.14159f / 180.0f);
     float pitch_rad = pitch * (3.14159f / 180.0f);
-    
+
     // Calculate new forward direction
     camera->forward[0] = cosf(yaw_rad) * cosf(pitch_rad);
     camera->forward[1] = sinf(pitch_rad);
     camera->forward[2] = sinf(yaw_rad) * cosf(pitch_rad);
-    
+
     vec3_norm(camera->forward, camera->forward);
 }
 
-void rgfx_camera_look_at(rgfx_camera_t* camera, vec3 target) {
-    if (!camera) return;
-    
+void rgfx_camera_look_at(rgfx_camera_t* camera, vec3 target)
+{
+    if (!camera)
+        return;
+
     // Calculate direction vector from camera position to target
     vec3 direction;
     direction[0] = target[0] - camera->position[0];
     direction[1] = target[1] - camera->position[1];
     direction[2] = target[2] - camera->position[2];
-    
+
     // Normalize the direction vector
     vec3_norm(direction, direction);
-    
+
     // Set the camera's forward direction
     vec3_dup(camera->forward, direction);
 }

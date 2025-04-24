@@ -54,7 +54,6 @@ extern "C"
     void         rgfx_sprite_get_position(rgfx_sprite_t* sprite, vec3 out_position);
     void         rgfx_sprite_get_size(rgfx_sprite_t* sprite, vec2 out_size);
     color        rgfx_sprite_get_color(rgfx_sprite_t* sprite);
-    int          rgfx_sprite_get_z_order(rgfx_sprite_t* sprite);
     unsigned int rgfx_sprite_get_texture_id(rgfx_sprite_t* sprite);
 
     // Camera type forward declaration
