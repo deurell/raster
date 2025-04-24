@@ -28,6 +28,29 @@ extern "C"
     unsigned int rgfx_load_texture(const char* filepath);
     void         rgfx_delete_texture(unsigned int textureID);
 
+    // Uniform system
+    typedef enum {
+        RGFX_UNIFORM_FLOAT,
+        RGFX_UNIFORM_INT,
+        RGFX_UNIFORM_VEC2,
+        RGFX_UNIFORM_VEC3,
+        RGFX_UNIFORM_VEC4
+    } rgfx_uniform_type_t;
+
+    typedef struct {
+        const char* name;
+        rgfx_uniform_type_t type;
+        union {
+            float float_val;
+            int int_val;
+            vec2 vec2_val;
+            vec3 vec3_val;
+            vec4 vec4_val;
+        };
+    } rgfx_uniform_t;
+
+    #define RGFX_MAX_UNIFORMS 16
+
     // Sprite descriptor
     typedef struct
     {
@@ -37,6 +60,9 @@ extern "C"
         const char* vertex_shader_path;   // Optional: Path to vertex shader file (NULL for default)
         const char* fragment_shader_path; // Optional: Path to fragment shader file (NULL for default)
         const char* texture_path;         // Optional: Path to texture file (NULL for no texture)
+        // Uniform system
+        rgfx_uniform_t uniforms[RGFX_MAX_UNIFORMS];
+        int uniform_count;
     } rgfx_sprite_desc_t;
 
     // Sprite API
@@ -55,6 +81,13 @@ extern "C"
     void         rgfx_sprite_get_size(rgfx_sprite_t* sprite, vec2 out_size);
     color        rgfx_sprite_get_color(rgfx_sprite_t* sprite);
     unsigned int rgfx_sprite_get_texture_id(rgfx_sprite_t* sprite);
+
+    // Uniform API
+    void rgfx_sprite_set_uniform_float(rgfx_sprite_t* sprite, const char* name, float value);
+    void rgfx_sprite_set_uniform_int(rgfx_sprite_t* sprite, const char* name, int value);
+    void rgfx_sprite_set_uniform_vec2(rgfx_sprite_t* sprite, const char* name, vec2 value);
+    void rgfx_sprite_set_uniform_vec3(rgfx_sprite_t* sprite, const char* name, vec3 value);
+    void rgfx_sprite_set_uniform_vec4(rgfx_sprite_t* sprite, const char* name, vec4 value);
 
     // Camera type forward declaration
     typedef struct rgfx_camera rgfx_camera_t;

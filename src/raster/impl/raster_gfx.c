@@ -22,6 +22,9 @@ struct rgfx_sprite
     vec3         position;
     vec2         size;
     color        color;
+    // Uniform system
+    rgfx_uniform_t uniforms[RGFX_MAX_UNIFORMS];
+    int uniform_count;
 };
 
 struct rgfx_camera
@@ -225,6 +228,16 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     vec3_dup(sprite->position, desc->position);
     vec2_dup(sprite->size, desc->size);
     sprite->color = desc->color;
+    
+    // Initialize uniform system
+    sprite->uniform_count = 0;
+    if (desc->uniform_count > 0) {
+        // Copy uniforms from descriptor
+        sprite->uniform_count = desc->uniform_count > RGFX_MAX_UNIFORMS ? RGFX_MAX_UNIFORMS : desc->uniform_count;
+        for (int i = 0; i < sprite->uniform_count; i++) {
+            sprite->uniforms[i] = desc->uniforms[i];
+        }
+    }
 
     // Load shader files - no fallback to defaults
     char* vertexSource = rgfx_load_shader_source(desc->vertex_shader_path);
@@ -388,6 +401,31 @@ void rgfx_sprite_draw(rgfx_sprite_t* sprite)
     // Add uniform for time - pass current time to all shaders
     float currentTime = rapp_get_time();
     glUniform1f(glGetUniformLocation(sprite->shaderProgram, "uTime"), currentTime);
+
+    // Apply custom uniforms
+    for (int i = 0; i < sprite->uniform_count; i++) {
+        const rgfx_uniform_t* uniform = &sprite->uniforms[i];
+        int location = glGetUniformLocation(sprite->shaderProgram, uniform->name);
+        if (location != -1) {
+            switch (uniform->type) {
+                case RGFX_UNIFORM_FLOAT:
+                    glUniform1f(location, uniform->float_val);
+                    break;
+                case RGFX_UNIFORM_INT:
+                    glUniform1i(location, uniform->int_val);
+                    break;
+                case RGFX_UNIFORM_VEC2:
+                    glUniform2fv(location, 1, uniform->vec2_val);
+                    break;
+                case RGFX_UNIFORM_VEC3:
+                    glUniform3fv(location, 1, uniform->vec3_val);
+                    break;
+                case RGFX_UNIFORM_VEC4:
+                    glUniform4fv(location, 1, uniform->vec4_val);
+                    break;
+            }
+        }
+    }
 
     // Check if the uniform exists before setting it
     // This handles the uUseTexture uniform which is only in the custom shader
@@ -738,4 +776,115 @@ void rgfx_camera_look_at(rgfx_camera_t* camera, vec3 target)
 
     // Set the camera's forward direction
     vec3_dup(camera->forward, direction);
+}
+
+// Uniform API implementations
+void rgfx_sprite_set_uniform_float(rgfx_sprite_t* sprite, const char* name, float value)
+{
+    if (!sprite || !name) return;
+    
+    // First check if the uniform already exists
+    for (int i = 0; i < sprite->uniform_count; i++) {
+        if (strcmp(sprite->uniforms[i].name, name) == 0) {
+            sprite->uniforms[i].type = RGFX_UNIFORM_FLOAT;
+            sprite->uniforms[i].float_val = value;
+            return;
+        }
+    }
+    
+    // If not found and we have room, add a new uniform
+    if (sprite->uniform_count < RGFX_MAX_UNIFORMS) {
+        sprite->uniforms[sprite->uniform_count].name = name;
+        sprite->uniforms[sprite->uniform_count].type = RGFX_UNIFORM_FLOAT;
+        sprite->uniforms[sprite->uniform_count].float_val = value;
+        sprite->uniform_count++;
+    }
+}
+
+void rgfx_sprite_set_uniform_int(rgfx_sprite_t* sprite, const char* name, int value)
+{
+    if (!sprite || !name) return;
+    
+    // First check if the uniform already exists
+    for (int i = 0; i < sprite->uniform_count; i++) {
+        if (strcmp(sprite->uniforms[i].name, name) == 0) {
+            sprite->uniforms[i].type = RGFX_UNIFORM_INT;
+            sprite->uniforms[i].int_val = value;
+            return;
+        }
+    }
+    
+    // If not found and we have room, add a new uniform
+    if (sprite->uniform_count < RGFX_MAX_UNIFORMS) {
+        sprite->uniforms[sprite->uniform_count].name = name;
+        sprite->uniforms[sprite->uniform_count].type = RGFX_UNIFORM_INT;
+        sprite->uniforms[sprite->uniform_count].int_val = value;
+        sprite->uniform_count++;
+    }
+}
+
+void rgfx_sprite_set_uniform_vec2(rgfx_sprite_t* sprite, const char* name, vec2 value)
+{
+    if (!sprite || !name) return;
+    
+    // First check if the uniform already exists
+    for (int i = 0; i < sprite->uniform_count; i++) {
+        if (strcmp(sprite->uniforms[i].name, name) == 0) {
+            sprite->uniforms[i].type = RGFX_UNIFORM_VEC2;
+            vec2_dup(sprite->uniforms[i].vec2_val, value);
+            return;
+        }
+    }
+    
+    // If not found and we have room, add a new uniform
+    if (sprite->uniform_count < RGFX_MAX_UNIFORMS) {
+        sprite->uniforms[sprite->uniform_count].name = name;
+        sprite->uniforms[sprite->uniform_count].type = RGFX_UNIFORM_VEC2;
+        vec2_dup(sprite->uniforms[sprite->uniform_count].vec2_val, value);
+        sprite->uniform_count++;
+    }
+}
+
+void rgfx_sprite_set_uniform_vec3(rgfx_sprite_t* sprite, const char* name, vec3 value)
+{
+    if (!sprite || !name) return;
+    
+    // First check if the uniform already exists
+    for (int i = 0; i < sprite->uniform_count; i++) {
+        if (strcmp(sprite->uniforms[i].name, name) == 0) {
+            sprite->uniforms[i].type = RGFX_UNIFORM_VEC3;
+            vec3_dup(sprite->uniforms[i].vec3_val, value);
+            return;
+        }
+    }
+    
+    // If not found and we have room, add a new uniform
+    if (sprite->uniform_count < RGFX_MAX_UNIFORMS) {
+        sprite->uniforms[sprite->uniform_count].name = name;
+        sprite->uniforms[sprite->uniform_count].type = RGFX_UNIFORM_VEC3;
+        vec3_dup(sprite->uniforms[sprite->uniform_count].vec3_val, value);
+        sprite->uniform_count++;
+    }
+}
+
+void rgfx_sprite_set_uniform_vec4(rgfx_sprite_t* sprite, const char* name, vec4 value)
+{
+    if (!sprite || !name) return;
+    
+    // First check if the uniform already exists
+    for (int i = 0; i < sprite->uniform_count; i++) {
+        if (strcmp(sprite->uniforms[i].name, name) == 0) {
+            sprite->uniforms[i].type = RGFX_UNIFORM_VEC4;
+            vec4_dup(sprite->uniforms[i].vec4_val, value);
+            return;
+        }
+    }
+    
+    // If not found and we have room, add a new uniform
+    if (sprite->uniform_count < RGFX_MAX_UNIFORMS) {
+        sprite->uniforms[sprite->uniform_count].name = name;
+        sprite->uniforms[sprite->uniform_count].type = RGFX_UNIFORM_VEC4;
+        vec4_dup(sprite->uniforms[sprite->uniform_count].vec4_val, value);
+        sprite->uniform_count++;
+    }
 }

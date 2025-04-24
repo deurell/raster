@@ -25,8 +25,11 @@ void game_update(float dt)
     vec3 sprite_pos = { 0.0f, 0.8f * sin(G.time * G.bounce_speed), 2.0f * sin(G.time) };
     rgfx_sprite_set_position(G.sprite_one, sprite_pos);
 
-    vec3 orbit_pos = { 0.5f * cos(G.time * G.orbit_speed), 1.5f * sin(G.time * G.orbit_speed), 2.0f * sin(G.time) };
+    vec3 orbit_pos = { 1.5f * cos(G.time * G.orbit_speed), 1.5f * sin(G.time * G.orbit_speed), 2.0f * sin(G.time) };
     rgfx_sprite_set_position(G.sprite_two, orbit_pos);
+
+    rgfx_sprite_set_uniform_float(G.sprite_rasterbar, "uFrequency", 0.8f + 0.5f * sin(G.time));
+    rgfx_sprite_set_uniform_float(G.sprite_rasterbar, "uAmplitude", 0.2f + 0.1f * cos(G.time * 0.5f));
 
     rgfx_camera_t* camera = rapp_get_main_camera();
     if (camera)
@@ -98,11 +101,16 @@ int main(void)
 
     G.sprite_two = rgfx_sprite_create(&green_sprite_desc);
 
-    rgfx_sprite_desc_t rasterbar_desc = { .position             = { 0.0f, 0.0f, 0.0f },
-                                          .size                 = { 100.0f, 0.5f },
-                                          .color                = { 1.0f, 1.0f, 1.0f },
-                                          .vertex_shader_path   = "assets/shaders/rasterbar.vert",
-                                          .fragment_shader_path = "assets/shaders/rasterbar.frag" };
+    rgfx_sprite_desc_t rasterbar_desc = {
+        .position             = { 0.0f, 0.0f, 0.0f },
+        .size                 = { 100.0f, 0.5f },
+        .color                = { 1.0f, 1.0f, 1.0f },
+        .vertex_shader_path   = "assets/shaders/rasterbar.vert",
+        .fragment_shader_path = "assets/shaders/rasterbar.frag",
+        .uniform_count        = 2,
+        .uniforms             = { { .name = "uFrequency", .type = RGFX_UNIFORM_FLOAT, .float_val = 5.0f },
+                                  { .name = "uAmplitude", .type = RGFX_UNIFORM_FLOAT, .float_val = 0.5f } }
+    };
 
     G.sprite_rasterbar = rgfx_sprite_create(&rasterbar_desc);
 
