@@ -66,7 +66,7 @@ int main(void)
                              .camera     = { .position = { 0.0f, 0.0f, 5.0f },
                                              .target   = { 0.0f, 0.0f, 0.0f },
                                              .up       = { 0.0f, 1.0f, 0.0f },
-                                             .fov      = 90.0f * (3.14159f / 180.0f),
+                                             .fov      = deg_to_rad(90.0f),
                                              .aspect   = 800.0f / 600.0f,
                                              .near     = 0.1f,
                                              .far      = 100.0f } };

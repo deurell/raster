@@ -28,7 +28,7 @@ extern "C"
         rapp_update_fn     update_fn;
         rapp_draw_fn       draw_fn;
         rapp_cleanup_fn    cleanup_fn;
-        rgfx_camera_desc_t camera;  // Default camera configuration
+        rgfx_camera_desc_t camera; // Default camera configuration
     } rapp_desc_t;
 
     // App lifecycle
@@ -43,7 +43,7 @@ extern "C"
 
     // Camera functions
     rgfx_camera_t* rapp_get_main_camera(void);
-    
+
     // Window functions
     void rapp_get_window_size(int* width, int* height);
 
