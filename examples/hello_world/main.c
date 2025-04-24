@@ -1,5 +1,4 @@
 #include "raster/raster.h"
-#include "raster/raster_gfx.h"
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>

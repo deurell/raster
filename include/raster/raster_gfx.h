@@ -29,7 +29,8 @@ extern "C"
     void         rgfx_delete_texture(unsigned int textureID);
 
     // Uniform system
-    typedef enum {
+    typedef enum
+    {
         RGFX_UNIFORM_FLOAT,
         RGFX_UNIFORM_INT,
         RGFX_UNIFORM_VEC2,
@@ -37,19 +38,21 @@ extern "C"
         RGFX_UNIFORM_VEC4
     } rgfx_uniform_type_t;
 
-    typedef struct {
-        const char* name;
+    typedef struct
+    {
+        const char*         name;
         rgfx_uniform_type_t type;
-        union {
+        union
+        {
             float float_val;
-            int int_val;
-            vec2 vec2_val;
-            vec3 vec3_val;
-            vec4 vec4_val;
+            int   int_val;
+            vec2  vec2_val;
+            vec3  vec3_val;
+            vec4  vec4_val;
         };
     } rgfx_uniform_t;
 
-    #define RGFX_MAX_UNIFORMS 16
+#define RGFX_MAX_UNIFORMS 16
 
     // Sprite descriptor
     typedef struct
@@ -62,7 +65,7 @@ extern "C"
         const char* texture_path;         // Optional: Path to texture file (NULL for no texture)
         // Uniform system
         rgfx_uniform_t uniforms[RGFX_MAX_UNIFORMS];
-        int uniform_count;                // Optional: Will be auto-calculated if set to 0
+        int            uniform_count; // Optional: Will be auto-calculated if set to 0
     } rgfx_sprite_desc_t;
 
     // Sprite API
@@ -93,26 +96,27 @@ extern "C"
     typedef struct rgfx_camera rgfx_camera_t;
 
     // Camera descriptor for initialization
-    typedef struct {
-        vec3 position;
-        vec3 target;
-        vec3 up;
-        float fov;           // Field of view in radians
-        float aspect;        // Aspect ratio (width/height)
-        float near;         // Near clipping plane
-        float far;          // Far clipping plane
+    typedef struct
+    {
+        vec3  position;
+        vec3  target;
+        vec3  up;
+        float fov;    // Field of view in radians
+        float aspect; // Aspect ratio (width/height)
+        float near;   // Near clipping plane
+        float far;    // Far clipping plane
     } rgfx_camera_desc_t;
 
     // Camera functions
     rgfx_camera_t* rgfx_camera_create(const rgfx_camera_desc_t* desc);
-    void rgfx_camera_destroy(rgfx_camera_t* camera);
-    void rgfx_camera_set_position(rgfx_camera_t* camera, vec3 position);
-    void rgfx_camera_set_direction(rgfx_camera_t* camera, vec3 direction);
-    void rgfx_camera_look_at(rgfx_camera_t* camera, vec3 target);
-    void rgfx_camera_move(rgfx_camera_t* camera, vec3 offset);
-    void rgfx_camera_rotate(rgfx_camera_t* camera, float yaw, float pitch);
-    void rgfx_camera_get_matrices(const rgfx_camera_t* camera, mat4x4 view, mat4x4 projection);
-    void rgfx_set_active_camera(rgfx_camera_t* camera);
+    void           rgfx_camera_destroy(rgfx_camera_t* camera);
+    void           rgfx_camera_set_position(rgfx_camera_t* camera, vec3 position);
+    void           rgfx_camera_set_direction(rgfx_camera_t* camera, vec3 direction);
+    void           rgfx_camera_look_at(rgfx_camera_t* camera, vec3 target);
+    void           rgfx_camera_move(rgfx_camera_t* camera, vec3 offset);
+    void           rgfx_camera_rotate(rgfx_camera_t* camera, float yaw, float pitch);
+    void           rgfx_camera_get_matrices(const rgfx_camera_t* camera, mat4x4 view, mat4x4 projection);
+    void           rgfx_set_active_camera(rgfx_camera_t* camera);
 
 #ifdef __cplusplus
 }
