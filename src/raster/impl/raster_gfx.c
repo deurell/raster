@@ -575,7 +575,12 @@ rgfx_camera_t* rgfx_camera_create(const rgfx_camera_desc_t* desc) {
     if (!camera) return NULL;
     
     vec3_dup(camera->position, desc->position);
-    vec3_dup(camera->forward, desc->target);
+    
+    // Calculate forward direction from position to target
+    vec3 direction;
+    vec3_sub(direction, desc->target, desc->position);
+    vec3_norm(camera->forward, direction); // Store normalized direction
+    
     vec3_dup(camera->up, desc->up);
     camera->fov = desc->fov;
     camera->aspect = desc->aspect;
@@ -602,7 +607,17 @@ void rgfx_camera_set_position(rgfx_camera_t* camera, vec3 position) {
 
 void rgfx_camera_set_target(rgfx_camera_t* camera, vec3 target) {
     if (camera) {
-        vec3_dup(camera->forward, target);
+        // Calculate direction vector from camera position to target
+        vec3 direction;
+        direction[0] = target[0] - camera->position[0];
+        direction[1] = target[1] - camera->position[1];
+        direction[2] = target[2] - camera->position[2];
+        
+        // Normalize the direction vector
+        vec3_norm(direction, direction);
+        
+        // Set the camera's forward direction
+        vec3_dup(camera->forward, direction);
     }
 }
 

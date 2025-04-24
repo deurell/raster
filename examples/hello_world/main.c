@@ -31,7 +31,7 @@ void game_update(float dt)
     rgfx_camera_t* camera = rapp_get_main_camera();
     if (camera)
     {
-        vec3 camera_pos = { 2.0f * sin(G.time), 0.0f, 3.0f + 1 * cos(G.time) };
+        vec3 camera_pos = { 2.0f * sin(G.time), 0.0f, 5.0f + 1 * cos(G.time) };
         rgfx_camera_set_position(camera, camera_pos);
     }
 
@@ -66,9 +66,9 @@ int main(void)
         .cleanup_fn = game_cleanup,
         .camera = { 
             .position = { 0.0f, 0.0f, 5.0f },
-            .target = { 0.0f, 0.0f, -1.0f },  // This will be our initial forward direction
+            .target = { 0.0f, 0.0f, 0.0f },
             .up = { 0.0f, 1.0f, 0.0f },
-            .fov = 110.0f * (3.14159f / 180.0f),
+            .fov = 90.0f * (3.14159f / 180.0f),
             .aspect = 800.0f / 600.0f,
             .near = 0.1f,
             .far = 100.0f 
