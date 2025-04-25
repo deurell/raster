@@ -3,6 +3,7 @@
 #include "raster/raster_sfx.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -13,9 +14,40 @@ struct rsfx_sound {
     ma_device device;
     int loaded;
     int loop;
+    char* path; // For cache lookup
+    struct rsfx_sound* next; // For cache linked list
 };
 
 static int g_initialized = 0;
+static struct rsfx_sound* g_sound_cache = NULL;
+
+// Helper: find sound in cache by path
+static struct rsfx_sound* find_cached_sound(const char* path) {
+    struct rsfx_sound* s = g_sound_cache;
+    while (s) {
+        if (s->path && strcmp(s->path, path) == 0) return s;
+        s = s->next;
+    }
+    return NULL;
+}
+
+// Helper: add sound to cache
+static void cache_sound(struct rsfx_sound* sound) {
+    sound->next = g_sound_cache;
+    g_sound_cache = sound;
+}
+
+// Helper: remove sound from cache (used in clear)
+static void remove_sound_from_cache(struct rsfx_sound* sound) {
+    struct rsfx_sound** p = &g_sound_cache;
+    while (*p) {
+        if (*p == sound) {
+            *p = sound->next;
+            return;
+        }
+        p = &((*p)->next);
+    }
+}
 
 static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount) {
     ma_decoder* pDecoder = (ma_decoder*)pDevice->pUserData;
@@ -50,9 +82,13 @@ void rsfx_terminate(void) {
 
 rsfx_sound_t rsfx_load_sound(const char* path) {
     if (!g_initialized) return NULL;
+    struct rsfx_sound* cached = find_cached_sound(path);
+    if (cached) return cached;
     rsfx_sound_t s = (rsfx_sound_t)calloc(1, sizeof(struct rsfx_sound));
     if (!s) return NULL;
+    s->path = strdup(path);
     if (ma_decoder_init_file(path, NULL, &s->decoder) != MA_SUCCESS) {
+        free(s->path);
         free(s);
         return NULL;
     }
@@ -64,10 +100,12 @@ rsfx_sound_t rsfx_load_sound(const char* path) {
     deviceConfig.pUserData         = &s->decoder;
     if (ma_device_init(NULL, &deviceConfig, &s->device) != MA_SUCCESS) {
         ma_decoder_uninit(&s->decoder);
+        free(s->path);
         free(s);
         return NULL;
     }
     s->loaded = 1;
+    cache_sound(s);
     return s;
 }
 
@@ -77,7 +115,19 @@ void rsfx_free_sound(rsfx_sound_t sound) {
         ma_device_uninit(&sound->device);
         ma_decoder_uninit(&sound->decoder);
     }
+    if (sound->path) free(sound->path);
+    remove_sound_from_cache(sound);
     free(sound);
+}
+
+void rsfx_clear_cache(void) {
+    struct rsfx_sound* s = g_sound_cache;
+    while (s) {
+        struct rsfx_sound* next = s->next;
+        rsfx_free_sound(s);
+        s = next;
+    }
+    g_sound_cache = NULL;
 }
 
 bool rsfx_play_sound(rsfx_sound_t sound, bool loop) {
