@@ -41,6 +41,18 @@ void game_update(float dt)
     {
         rapp_quit();
     }
+    if (rinput_key_pressed(RINPUT_KEY_0))
+    {
+        rsfx_sound_t sound = rsfx_load_sound("assets/sfx/bounce.wav");
+        if (sound)
+        {
+            rsfx_play_sound(sound, false);
+        }
+        else
+        {
+            rlog_error("Failed to load sound\n");
+        }
+    }
 }
 
 void game_draw(void)
@@ -81,16 +93,22 @@ int main(void)
         rlog_error("Failed to initialize the raster engine");
         return -1;
     }
-    rlog_info("Raster engine initialized successfully"); 
+    rlog_info("Raster engine initialized successfully");
 
     // Initialize audio
-    if (!rsfx_init()) {
+    if (!rsfx_init())
+    {
         rlog_error("Failed to initialize audio system\n");
-    } else {
+    }
+    else
+    {
         rsfx_sound_t bgm = rsfx_load_sound("assets/sfx/background.mp3");
-        if (bgm) {
+        if (bgm)
+        {
             rsfx_play_sound(bgm, true); // Loop background music
-        } else {
+        }
+        else
+        {
             rlog_error("Failed to load background music\n");
         }
     }
@@ -127,15 +145,13 @@ int main(void)
     G.sprite_rasterbar = rgfx_sprite_create(&rasterbar_desc);
 
     // Create text
-    rgfx_text_desc_t text_desc = {
-        .font_path     = "assets/fonts/roboto.ttf",
-        .font_size     = 64.0f,
-        .text          = "RASTER",
-        .position      = { 0.0f, 0.0f, 0.0f },
-        .text_color    = { 1.0f, 1.0f, 1.0f },
-        .line_spacing  = 1.2f,
-        .alignment     = RGFX_TEXT_ALIGN_CENTER
-    };
+    rgfx_text_desc_t text_desc = { .font_path    = "assets/fonts/roboto.ttf",
+                                   .font_size    = 64.0f,
+                                   .text         = "RASTER",
+                                   .position     = { 0.0f, 0.0f, 0.0f },
+                                   .text_color   = { 1.0f, 1.0f, 1.0f },
+                                   .line_spacing = 1.2f,
+                                   .alignment    = RGFX_TEXT_ALIGN_CENTER };
 
     G.text = rgfx_text_create(&text_desc);
 
