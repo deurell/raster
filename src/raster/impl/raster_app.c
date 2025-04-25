@@ -10,6 +10,7 @@
 // Forward declarations for input callbacks
 void _rinput_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void _rinput_mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
+void _rinput_char_callback(GLFWwindow* window, unsigned int codepoint);
 void _rinput_update(void);
 
 // Global application state
@@ -138,6 +139,7 @@ bool rapp_init(const rapp_desc_t* desc)
     // Set input callbacks
     glfwSetKeyCallback(app_state.window, _rinput_key_callback);
     glfwSetMouseButtonCallback(app_state.window, _rinput_mouse_button_callback);
+    glfwSetCharCallback(app_state.window, _rinput_char_callback); // Register char callback
 
     // Initialize time
     app_state.currentTime = glfwGetTime();

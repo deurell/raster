@@ -37,9 +37,28 @@ void game_update(float dt)
         rgfx_camera_set_position(camera, camera_pos);
     }
 
+    unsigned int chars[32];
+    int num_chars = rinput_get_chars(chars, 32);
+for (int i = 0; i < num_chars; ++i) {
+    rlog_info("Char input: U+%04X\n", chars[i]);
+}
+
     if (rinput_key_pressed(RINPUT_KEY_ESCAPE))
     {
         rapp_quit();
+    }
+    if (rinput_key_down(RINPUT_KEY_0))
+    {
+        rlog_info("Key 0 pressed");
+        rsfx_sound_t sound = rsfx_load_sound("assets/sfx/bounce.wav");
+        if (sound)
+        {
+            rsfx_play_sound(sound, false);
+        }
+        else
+        {
+            rlog_error("Failed to load sound\n");
+        }
     }
 }
 
@@ -83,6 +102,24 @@ int main(void)
     }
     rlog_info("Raster engine initialized successfully");
 
+    // Initialize audio
+    if (!rsfx_init())
+    {
+        rlog_error("Failed to initialize audio system\n");
+    }
+    else
+    {
+        rsfx_sound_t bgm = rsfx_load_sound("assets/sfx/background.mp3");
+        if (bgm)
+        {
+            rsfx_play_sound(bgm, true); // Loop background music
+        }
+        else
+        {
+            rlog_error("Failed to load background music\n");
+        }
+    }
+
     // Create sprites
     rgfx_sprite_desc_t sprite_desc = { .position             = { 0.0f, 0.0f, 0.0f },
                                        .size                 = { 1.0f, 1.0f },
@@ -115,15 +152,13 @@ int main(void)
     G.sprite_rasterbar = rgfx_sprite_create(&rasterbar_desc);
 
     // Create text
-    rgfx_text_desc_t text_desc = {
-        .font_path     = "assets/fonts/roboto.ttf",
-        .font_size     = 64.0f,
-        .text          = "RASTER",
-        .position      = { 0.0f, 0.0f, 0.0f },
-        .text_color    = { 1.0f, 1.0f, 1.0f },
-        .line_spacing  = 1.2f,
-        .alignment     = RGFX_TEXT_ALIGN_CENTER
-    };
+    rgfx_text_desc_t text_desc = { .font_path    = "assets/fonts/roboto.ttf",
+                                   .font_size    = 64.0f,
+                                   .text         = "RASTER",
+                                   .position     = { 0.0f, 0.0f, 0.0f },
+                                   .text_color   = { 1.0f, 1.0f, 1.0f },
+                                   .line_spacing = 1.2f,
+                                   .alignment    = RGFX_TEXT_ALIGN_CENTER };
 
     G.text = rgfx_text_create(&text_desc);
 
