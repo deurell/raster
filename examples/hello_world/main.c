@@ -41,8 +41,9 @@ void game_update(float dt)
     {
         rapp_quit();
     }
-    if (rinput_key_pressed(RINPUT_KEY_0))
+    if (rinput_key_down(RINPUT_KEY_0))
     {
+        rlog_info("Key 0 pressed");
         rsfx_sound_t sound = rsfx_load_sound("assets/sfx/bounce.wav");
         if (sound)
         {
