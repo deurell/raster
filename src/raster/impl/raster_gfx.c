@@ -992,6 +992,8 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc)
 
     rgfx_text_t* text  = (rgfx_text_t*)calloc(1, sizeof(rgfx_text_t));
     text->line_spacing = 1.2f;
+    // Initialize alignment from descriptor
+    text->alignment = desc->alignment;
     if (!text)
         return NULL;
 
