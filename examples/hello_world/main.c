@@ -37,6 +37,12 @@ void game_update(float dt)
         rgfx_camera_set_position(camera, camera_pos);
     }
 
+    unsigned int chars[32];
+    int num_chars = rinput_get_chars(chars, 32);
+for (int i = 0; i < num_chars; ++i) {
+    rlog_info("Char input: U+%04X\n", chars[i]);
+}
+
     if (rinput_key_pressed(RINPUT_KEY_ESCAPE))
     {
         rapp_quit();

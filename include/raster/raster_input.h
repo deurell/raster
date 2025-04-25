@@ -78,6 +78,7 @@ extern "C"
     bool rinput_key_pressed(rinput_key_t key);
     bool rinput_key_down(rinput_key_t key);
     bool rinput_key_released(rinput_key_t key);
+    int  rinput_get_chars(unsigned int* out_buffer, int max_chars);
 
     // Mouse input
     void rinput_mouse_position(vec2 out_position);
