@@ -9,6 +9,7 @@ typedef struct
     rgfx_sprite_t* sprite_one;
     rgfx_sprite_t* sprite_two;
     rgfx_sprite_t* sprite_rasterbar;
+    rgfx_text_t*   text;
     float          time;
     float          bounce_speed;
     float          orbit_speed;
@@ -20,7 +21,6 @@ void game_update(float dt)
 {
     G.time += dt;
 
-    // Update red sprite position
     vec3 sprite_pos = { 0.0f, 0.8f * sin(G.time * G.bounce_speed), 2.0f * sin(G.time) };
     rgfx_sprite_set_position(G.sprite_one, sprite_pos);
 
@@ -48,6 +48,7 @@ void game_draw(void)
     color bg_color = { 0.0f, 0.53f, 0.94f };
     rgfx_clear_color(bg_color);
     rgfx_sprite_draw(G.sprite_rasterbar);
+    rgfx_text_draw(G.text);
     rgfx_sprite_draw(G.sprite_one);
     rgfx_sprite_draw(G.sprite_two);
 }
@@ -58,6 +59,7 @@ void game_cleanup(void)
     rgfx_sprite_destroy(G.sprite_one);
     rgfx_sprite_destroy(G.sprite_two);
     rgfx_sprite_destroy(G.sprite_rasterbar);
+    rgfx_text_destroy(G.text);
 }
 
 int main(void)
@@ -111,6 +113,19 @@ int main(void)
     };
 
     G.sprite_rasterbar = rgfx_sprite_create(&rasterbar_desc);
+
+    // Create text
+    rgfx_text_desc_t text_desc = {
+        .font_path     = "assets/fonts/roboto.ttf",
+        .font_size     = 64.0f,
+        .text          = "RASTER",
+        .position      = { 0.0f, 0.0f, 0.0f },
+        .text_color    = { 1.0f, 1.0f, 1.0f },
+        .line_spacing  = 1.2f,
+        .alignment     = RGFX_TEXT_ALIGN_CENTER
+    };
+
+    G.text = rgfx_text_create(&text_desc);
 
     G.time         = 0.0f;
     G.bounce_speed = 2.2f;

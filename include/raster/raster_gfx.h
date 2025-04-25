@@ -20,6 +20,9 @@ extern "C"
     // Sprite type forward declaration
     typedef struct rgfx_sprite rgfx_sprite_t;
 
+    // Text type forward declaration
+    typedef struct rgfx_text rgfx_text_t;
+
     // Shader loading
     char*        rgfx_load_shader_source(const char* filepath);
     unsigned int rgfx_create_shader_program(const char* vertexSource, const char* fragmentSource);
@@ -68,10 +71,36 @@ extern "C"
         int            uniform_count; // Optional: Will be auto-calculated if set to 0
     } rgfx_sprite_desc_t;
 
+    // Text descriptor
+    typedef struct
+    {
+        const char* font_path;     // Path to font file (.ttf)
+        float       font_size;     // Font size in pixels
+        const char* text;          // Text to render (can include newlines)
+        vec3        position;      // Position in world space
+        color       text_color;    // Text color
+        float       line_spacing;  // Spacing between lines (multiplier of font size), default 1.2f
+        int         alignment;     // Text alignment: 0=left, 1=center, 2=right
+    } rgfx_text_desc_t;
+
+    // Text alignment enum
+    typedef enum
+    {
+        RGFX_TEXT_ALIGN_LEFT = 0,
+        RGFX_TEXT_ALIGN_CENTER = 1,
+        RGFX_TEXT_ALIGN_RIGHT = 2
+    } rgfx_text_alignment_t;
+
     // Sprite API
     rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc);
     void           rgfx_sprite_destroy(rgfx_sprite_t* sprite);
     void           rgfx_sprite_draw(rgfx_sprite_t* sprite);
+
+    // Text API
+    rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc);
+    void         rgfx_text_destroy(rgfx_text_t* text);
+    void         rgfx_text_draw(rgfx_text_t* text);
+    bool         rgfx_text_update_bitmap(rgfx_text_t* text);
 
     // Sprite properties
     void rgfx_sprite_set_position(rgfx_sprite_t* sprite, vec3 position);
@@ -79,11 +108,27 @@ extern "C"
     void rgfx_sprite_set_color(rgfx_sprite_t* sprite, color color);
     void rgfx_sprite_set_texture(rgfx_sprite_t* sprite, unsigned int textureID);
 
+    // Text properties
+    void         rgfx_text_set_position(rgfx_text_t* text, vec3 position);
+    void         rgfx_text_set_color(rgfx_text_t* text, color color);
+    void         rgfx_text_set_text(rgfx_text_t* text, const char* new_text);
+    void         rgfx_text_set_font_size(rgfx_text_t* text, float size);
+    void         rgfx_text_set_alignment(rgfx_text_t* text, int alignment);
+    void         rgfx_text_set_line_spacing(rgfx_text_t* text, float spacing);
+
     // Getters
     void         rgfx_sprite_get_position(rgfx_sprite_t* sprite, vec3 out_position);
     void         rgfx_sprite_get_size(rgfx_sprite_t* sprite, vec2 out_size);
     color        rgfx_sprite_get_color(rgfx_sprite_t* sprite);
     unsigned int rgfx_sprite_get_texture_id(rgfx_sprite_t* sprite);
+
+    // Text getters
+    void         rgfx_text_get_position(rgfx_text_t* text, vec3 out_position);
+    color        rgfx_text_get_color(rgfx_text_t* text);
+    float        rgfx_text_get_font_size(rgfx_text_t* text);
+    const char*  rgfx_text_get_text(rgfx_text_t* text);
+    int          rgfx_text_get_alignment(rgfx_text_t* text);
+    float        rgfx_text_get_line_spacing(rgfx_text_t* text);
 
     // Uniform API
     void rgfx_sprite_set_uniform_float(rgfx_sprite_t* sprite, const char* name, float value);
