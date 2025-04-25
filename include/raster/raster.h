@@ -20,6 +20,7 @@ extern "C"
 #include "raster_gfx.h"
 #include "raster_input.h"
 #include "raster_log.h"
+#include "raster_sfx.h"
 
 #ifdef __cplusplus
 }

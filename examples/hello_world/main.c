@@ -81,7 +81,19 @@ int main(void)
         rlog_error("Failed to initialize the raster engine");
         return -1;
     }
-    rlog_info("Raster engine initialized successfully");
+    rlog_info("Raster engine initialized successfully"); 
+
+    // Initialize audio
+    if (!rsfx_init()) {
+        rlog_error("Failed to initialize audio system\n");
+    } else {
+        rsfx_sound_t bgm = rsfx_load_sound("assets/sfx/background.mp3");
+        if (bgm) {
+            rsfx_play_sound(bgm, true); // Loop background music
+        } else {
+            rlog_error("Failed to load background music\n");
+        }
+    }
 
     // Create sprites
     rgfx_sprite_desc_t sprite_desc = { .position             = { 0.0f, 0.0f, 0.0f },
