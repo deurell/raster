@@ -1,5 +1,6 @@
 #include "raster/raster_app.h"
 #include "raster/raster_gfx.h"
+#include "raster/raster_log.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <stdio.h>
@@ -90,7 +91,7 @@ bool rapp_init(const rapp_desc_t* desc)
     // Initialize GLFW
     if (!glfwInit())
     {
-        printf("Failed to initialize GLFW\n");
+        rlog_error("Failed to initialize GLFW\n");
         return false;
     }
 
@@ -112,7 +113,7 @@ bool rapp_init(const rapp_desc_t* desc)
 
     if (!app_state.window)
     {
-        printf("Failed to create GLFW window\n");
+        rlog_fatal("Failed to create GLFW window\n");
         glfwTerminate();
         return false;
     }
@@ -123,7 +124,7 @@ bool rapp_init(const rapp_desc_t* desc)
     // Initialize graphics subsystem
     if (!rgfx_init())
     {
-        printf("Failed to initialize graphics system\n");
+        rlog_fatal("Failed to initialize graphics system\n");
         glfwDestroyWindow(app_state.window);
         glfwTerminate();
         return false;
@@ -133,7 +134,7 @@ bool rapp_init(const rapp_desc_t* desc)
     app_state.main_camera = rgfx_camera_create(&desc->camera);
     if (!app_state.main_camera)
     {
-        printf("Failed to create main camera\n");
+        rlog_fatal("Failed to create main camera\n");
         rgfx_shutdown();
         glfwTerminate();
         return false;
@@ -275,5 +276,5 @@ void rapp_get_window_size(int* width, int* height)
 // Framebuffer size callback function
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
-    printf("Framebuffer resized: %dx%d\n", width, height);
+    rlog_info("Framebuffer resized: %dx%d\n", width, height);
 }
