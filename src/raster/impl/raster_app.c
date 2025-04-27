@@ -187,6 +187,10 @@ void rapp_run(void)
 
         if (app_state.window)
         {
+            // Adjust framebuffer size and set viewport
+            int fb_width, fb_height;
+            glfwGetFramebufferSize(app_state.window, &fb_width, &fb_height);
+            glViewport(0, 0, fb_width, fb_height);
             glfwSwapBuffers(app_state.window);
         }
     }

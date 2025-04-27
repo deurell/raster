@@ -48,7 +48,10 @@ target_include_directories(raster
 if(EMSCRIPTEN_BUILD)
     target_link_libraries(raster PUBLIC glad)
 else()
-    target_link_libraries(raster PUBLIC glad glfw)
+    target_link_libraries(raster PUBLIC glad glfw ${CMAKE_DL_LIBS})
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(raster PUBLIC GL)
+    endif()
 endif()
 
 # Create the assets directory in the build folder
