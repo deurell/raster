@@ -14,6 +14,9 @@ void _rinput_mouse_button_callback(GLFWwindow* window, int button, int action, i
 void _rinput_char_callback(GLFWwindow* window, unsigned int codepoint);
 void _rinput_update(void);
 
+// Forward declaration for framebuffer size callback
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+
 // Global application state
 static struct
 {
@@ -142,6 +145,14 @@ bool rapp_init(const rapp_desc_t* desc)
     glfwSetMouseButtonCallback(app_state.window, _rinput_mouse_button_callback);
     glfwSetCharCallback(app_state.window, _rinput_char_callback); // Register char callback
 
+    // Register framebuffer size callback
+    glfwSetFramebufferSizeCallback(app_state.window, framebuffer_size_callback);
+
+    // Manually set the viewport initially
+    int fb_width, fb_height;
+    glfwGetFramebufferSize(app_state.window, &fb_width, &fb_height);
+    glViewport(0, 0, fb_width, fb_height);
+
     // Initialize time
     app_state.currentTime = glfwGetTime();
     app_state.lastTime    = app_state.currentTime;
@@ -188,10 +199,6 @@ void rapp_run(void)
 
         if (app_state.window)
         {
-            // Adjust framebuffer size and set viewport
-            int fb_width, fb_height;
-            glfwGetFramebufferSize(app_state.window, &fb_width, &fb_height);
-            glViewport(0, 0, fb_width, fb_height);
             glfwSwapBuffers(app_state.window);
         }
     }
@@ -263,4 +270,10 @@ void rapp_get_window_size(int* width, int* height)
         *width  = 0;
         *height = 0;
     }
+}
+
+// Framebuffer size callback function
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+    glViewport(0, 0, width, height);
+    printf("Framebuffer resized: %dx%d\n", width, height);
 }
