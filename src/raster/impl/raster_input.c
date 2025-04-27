@@ -1,5 +1,4 @@
 #include "raster/raster_input.h"
-#include "raster/raster_math.h"
 #include <GLFW/glfw3.h>
 #include <string.h>
 #include <stdio.h>

@@ -1,5 +1,6 @@
 #include "raster/raster_app.h"
 #include "raster/raster_gfx.h"
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <stdio.h>
 
