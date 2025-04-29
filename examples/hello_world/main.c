@@ -21,14 +21,14 @@ void game_update(float dt)
 {
     G.time += dt;
 
-    vec3 sprite_pos = { 0.0f, 0.8f * sin(G.time * G.bounce_speed), 2.0f * sin(G.time) };
+    vec3 sprite_pos = { 0.0f, 0.8f * sinf(G.time * G.bounce_speed), 2.0f * sinf(G.time) };
     rgfx_sprite_set_position(G.sprite_one, sprite_pos);
 
-    vec3 orbit_pos = { 1.5f * cos(G.time * G.orbit_speed), 1.5f * sin(G.time * G.orbit_speed), 2.0f * sin(G.time) };
+    vec3 orbit_pos = { 1.5f * cosf(G.time * G.orbit_speed), 1.5f * sinf(G.time * G.orbit_speed), 2.0f * sinf(G.time) };
     rgfx_sprite_set_position(G.sprite_two, orbit_pos);
 
-    rgfx_sprite_set_uniform_float(G.sprite_rasterbar, "uFrequency", 0.8f + 0.5f * sin(G.time));
-    rgfx_sprite_set_uniform_float(G.sprite_rasterbar, "uAmplitude", 0.2f + 0.1f * cos(G.time * 0.5f));
+    rgfx_sprite_set_uniform_float(G.sprite_rasterbar, "uFrequency", 0.8f + 0.5f * sinf(G.time));
+    rgfx_sprite_set_uniform_float(G.sprite_rasterbar, "uAmplitude", 0.2f + 0.1f * cosf(G.time * 0.5f));
 
     rgfx_camera_t* camera = rapp_get_main_camera();
     if (camera)

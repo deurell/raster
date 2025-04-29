@@ -274,7 +274,8 @@ void rapp_get_window_size(int* width, int* height)
 }
 
 // Framebuffer size callback function
-void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
     glViewport(0, 0, width, height);
     rlog_info("Framebuffer resized: %dx%d\n", width, height);
 }
