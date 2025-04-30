@@ -143,7 +143,7 @@ extern "C"
     rtransform_t* rgfx_get_transform(void* object);
     
     // Keep specific rotation/position setters for type safety and convenience
-    void rgfx_sprite_set_rotation(rgfx_sprite_t* sprite, float rotation);
+    void rgfx_sprite_set_rotation(rgfx_sprite_t* sprite, float rotation);  // Simple Z-axis rotation helper
     void rgfx_sprite_get_world_position(rgfx_sprite_t* sprite, vec3 out_position);
 
     void rgfx_text_set_rotation(rgfx_text_t* text, float rotation);

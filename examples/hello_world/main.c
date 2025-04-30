@@ -29,6 +29,14 @@ void game_update(float dt)
     float orbit_angle = G.time * G.orbit_speed;
     vec3 local_pos = { 1.5f * cosf(orbit_angle), 1.5f * sinf(orbit_angle), 0.0f };
     rgfx_sprite_set_position(G.sprite_two, local_pos);
+    
+    // Calculate rotation to face the parent sprite
+    vec3 up = {0.0f, 0.0f, 1.0f};  // Up vector for rotation
+    vec3 dir = {-local_pos[0], -local_pos[1], 0.0f};  // Direction to center
+    vec3_norm(dir, dir);  // Normalize the direction vector
+    float angle = atan2f(dir[1], dir[0]) + M_PI * 0.5f;
+    rtransform_t* transform = rgfx_get_transform(G.sprite_two);
+    rtransform_set_rotation_axis_angle(transform, up, angle);
 
     rgfx_sprite_set_uniform_float(G.sprite_rasterbar, "uFrequency", 0.8f + 0.5f * sinf(G.time));
     rgfx_sprite_set_uniform_float(G.sprite_rasterbar, "uAmplitude", 0.2f + 0.1f * cosf(G.time * 0.5f));
