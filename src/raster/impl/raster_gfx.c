@@ -29,7 +29,7 @@ static void         free_text_lines(text_lines_t* lines);
 
 struct rgfx_sprite
 {
-    rtransform_t* transform;  // Direct transform member
+    rtransform_t* transform;
     unsigned int   VAO;
     unsigned int   VBO;
     unsigned int   EBO;
@@ -724,13 +724,15 @@ void rgfx_text_set_position(rgfx_text_t* text, vec3 position) {
 // Add rotation setters
 void rgfx_sprite_set_rotation(rgfx_sprite_t* sprite, float rotation) {
     if (sprite && sprite->transform) {
-        rtransform_set_rotation(sprite->transform, rotation);
+        vec3 z_axis = {0.0f, 0.0f, 1.0f};
+        rtransform_set_rotation_axis_angle(sprite->transform, z_axis, rotation);
     }
 }
 
 void rgfx_text_set_rotation(rgfx_text_t* text, float rotation) {
     if (text && text->transform) {
-        rtransform_set_rotation(text->transform, rotation);
+        vec3 z_axis = {0.0f, 0.0f, 1.0f};
+        rtransform_set_rotation_axis_angle(text->transform, z_axis, rotation);
     }
 }
 

@@ -13,7 +13,8 @@ rtransform_t* rtransform_create(void) {
     transform->scale[1] = 1.0f;
     transform->scale[2] = 1.0f;
 
-    transform->rotation = 0.0f;
+    // Initialize quaternion to identity rotation
+    quat_identity(transform->rotation);
     transform->parent = NULL;
 
     mat4x4_identity(transform->local);
@@ -49,9 +50,9 @@ void rtransform_set_scale(rtransform_t* transform, vec3 scale) {
     }
 }
 
-void rtransform_set_rotation(rtransform_t* transform, float rotation) {
+void rtransform_set_rotation_axis_angle(rtransform_t* transform, vec3 axis, float angle) {
     if (transform) {
-        transform->rotation = rotation;
+        quat_rotate(transform->rotation, angle, axis);
         rtransform_update(transform);
     }
 }
@@ -78,14 +79,8 @@ void rtransform_update(rtransform_t* transform) {
     translation[3][1] = transform->position[1];
     translation[3][2] = transform->position[2];
     
-    // Rotation matrix (2D rotation around Z-axis)
-    float c = cosf(transform->rotation);
-    float s = sinf(transform->rotation);
-    mat4x4_identity(rotation);
-    rotation[0][0] = c;
-    rotation[0][1] = -s;
-    rotation[1][0] = s;
-    rotation[1][1] = c;
+    // Rotation matrix from quaternion
+    mat4x4_from_quat(rotation, transform->rotation);
     
     // Scale matrix
     mat4x4_identity(scale);
