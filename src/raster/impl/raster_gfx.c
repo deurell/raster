@@ -29,17 +29,17 @@ static void         free_text_lines(text_lines_t* lines);
 
 struct rgfx_sprite
 {
+    rtransform_t* transform;
     unsigned int   VAO;
     unsigned int   VBO;
     unsigned int   EBO;
     unsigned int   shaderProgram;
     unsigned int   textureID;
-    bool           hasTexture;
-    vec3           position;
-    vec2           size;
-    color          color;
+    bool          hasTexture;
+    vec2          size;
+    color         color;
     rgfx_uniform_t uniforms[RGFX_MAX_UNIFORMS];
-    int            uniform_count;
+    int           uniform_count;
 };
 
 struct rgfx_camera
@@ -55,6 +55,7 @@ struct rgfx_camera
 
 struct rgfx_text
 {
+    rtransform_t* transform;  // Direct transform member
     unsigned int   VAO;
     unsigned int   VBO;
     unsigned int   EBO;
@@ -63,15 +64,14 @@ struct rgfx_text
     stbtt_fontinfo font_info;
     unsigned char* font_buffer;
     unsigned char* font_bitmap;
-    char           text[RGFX_MAX_TEXT_LENGTH];
-    float          font_size;
-    vec3           position;
-    color          text_color;
-    int            bitmap_width;
-    int            bitmap_height;
-    float          line_spacing;
-    int            alignment;
-    unsigned int   index_count; // Number of indices for drawing
+    char          text[RGFX_MAX_TEXT_LENGTH];
+    float         font_size;
+    color         text_color;
+    int           bitmap_width;
+    int           bitmap_height;
+    float         line_spacing;
+    int           alignment;
+    unsigned int  index_count;
 };
 
 static rgfx_camera_t* active_camera = NULL;
@@ -266,24 +266,28 @@ unsigned int rgfx_create_shader_program(const char* vertexSource, const char* fr
 // Descriptor-based sprite creation
 rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
 {
-    if (!desc)
-        return NULL;
-
-    // Require vertex and fragment shader paths
-    if (!desc->vertex_shader_path || !desc->fragment_shader_path)
-    {
-        rlog_error("Vertex and fragment shader paths are required");
-        return NULL;
-    }
-
+    if (!desc) return NULL;
+    
     rgfx_sprite_t* sprite = (rgfx_sprite_t*)malloc(sizeof(rgfx_sprite_t));
-    if (!sprite)
-    {
+    if (!sprite) return NULL;
+
+    // Create transform component
+    sprite->transform = rtransform_create();
+    if (!sprite->transform) {
+        free(sprite);
         return NULL;
     }
 
-    // Use linmath.h's vec*_dup functions
-    vec3_dup(sprite->position, desc->position);
+    // Initialize transform with descriptor position
+    vec3 pos;
+    memcpy(pos, desc->position, sizeof(vec3));
+    rtransform_set_position(sprite->transform, pos);
+    
+    // Set initial scale based on size
+    vec3 scale = {desc->size[0], desc->size[1], 1.0f};
+    rtransform_set_scale(sprite->transform, scale);
+    
+    // Store size and color
     vec2_dup(sprite->size, desc->size);
     sprite->color = desc->color;
 
@@ -363,17 +367,16 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     bool  useTextureCoords = false;
 
     // Check if the shader has texture coordinate attribute
-    if (glGetAttribLocation(sprite->shaderProgram, "aTexCoord") != -1)
-    {
+    if (glGetAttribLocation(sprite->shaderProgram, "aTexCoord") != -1) {
         useTextureCoords = true;
 
         // Vertices with position and texture coordinates
         float verts[] = {
             // positions    // texture coords
-            -0.5f, -0.5f, 0.0f, 0.0f, // bottom left
-            0.5f,  -0.5f, 1.0f, 0.0f, // bottom right
-            0.5f,  0.5f,  1.0f, 1.0f, // top right
-            -0.5f, 0.5f,  0.0f, 1.0f  // top left
+            -0.5f, -0.5f,  0.0f, 0.0f, // bottom left
+            0.5f,  -0.5f,  1.0f, 0.0f, // bottom right
+            0.5f,  0.5f,   1.0f, 1.0f, // top right
+            -0.5f, 0.5f,   0.0f, 1.0f  // top left
         };
         memcpy(vertices, verts, sizeof(verts));
     }
@@ -453,662 +456,178 @@ void rgfx_sprite_destroy(rgfx_sprite_t* sprite)
 
 void rgfx_sprite_draw(rgfx_sprite_t* sprite)
 {
-    if (!sprite)
-    {
-        return;
-    }
+    if (!sprite) return;
 
     // Use shader program
     glUseProgram(sprite->shaderProgram);
 
-    // Set common uniforms for position, size, and color
-    glUniform3f(glGetUniformLocation(sprite->shaderProgram, "uPosition"),
-                sprite->position[0],
-                sprite->position[1],
-                sprite->position[2]);
-    glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uSize"), sprite->size[0], sprite->size[1]);
-    glUniform3f(
-        glGetUniformLocation(sprite->shaderProgram, "uColor"), sprite->color.r, sprite->color.g, sprite->color.b);
+    // Update transform
+    rtransform_update(sprite->transform);
 
-    // Add uniform for time - pass current time to all shaders
+    // Set model matrix from transform's world matrix
+    glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uModel"), 1, GL_FALSE, (float*)sprite->transform->world);
+
+    // Set size and color
+    glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uSize"), sprite->size[0], sprite->size[1]);
+    glUniform3f(glGetUniformLocation(sprite->shaderProgram, "uColor"), sprite->color.r, sprite->color.g, sprite->color.b);
+
+    // Set time uniform
     float currentTime = rapp_get_time();
     glUniform1f(glGetUniformLocation(sprite->shaderProgram, "uTime"), currentTime);
 
+    // Set texture usage flag
+    glUniform1i(glGetUniformLocation(sprite->shaderProgram, "uUseTexture"), sprite->hasTexture ? 1 : 0);
+
     // Apply custom uniforms
-    for (int i = 0; i < sprite->uniform_count; i++)
-    {
-        const rgfx_uniform_t* uniform  = &sprite->uniforms[i];
-        int                   location = glGetUniformLocation(sprite->shaderProgram, uniform->name);
-        if (location != -1)
-        {
-            switch (uniform->type)
-            {
-            case RGFX_UNIFORM_FLOAT:
-                glUniform1f(location, uniform->float_val);
-                break;
-            case RGFX_UNIFORM_INT:
-                glUniform1i(location, uniform->int_val);
-                break;
-            case RGFX_UNIFORM_VEC2:
-                glUniform2fv(location, 1, uniform->vec2_val);
-                break;
-            case RGFX_UNIFORM_VEC3:
-                glUniform3fv(location, 1, uniform->vec3_val);
-                break;
-            case RGFX_UNIFORM_VEC4:
-                glUniform4fv(location, 1, uniform->vec4_val);
-                break;
+    for (int i = 0; i < sprite->uniform_count; i++) {
+        const rgfx_uniform_t* uniform = &sprite->uniforms[i];
+        int location = glGetUniformLocation(sprite->shaderProgram, uniform->name);
+        if (location != -1) {
+            switch (uniform->type) {
+                case RGFX_UNIFORM_FLOAT:
+                    glUniform1f(location, uniform->float_val);
+                    break;
+                case RGFX_UNIFORM_INT:
+                    glUniform1i(location, uniform->int_val);
+                    break;
+                case RGFX_UNIFORM_VEC2:
+                    glUniform2fv(location, 1, uniform->vec2_val);
+                    break;
+                case RGFX_UNIFORM_VEC3:
+                    glUniform3fv(location, 1, uniform->vec3_val);
+                    break;
+                case RGFX_UNIFORM_VEC4:
+                    glUniform4fv(location, 1, uniform->vec4_val);
+                    break;
             }
         }
     }
 
-    // Check if the uniform exists before setting it
-    // This handles the uUseTexture uniform which is only in the custom shader
-    int useTextureLocation = glGetUniformLocation(sprite->shaderProgram, "uUseTexture");
-    if (useTextureLocation != -1)
-    {
-        glUniform1i(useTextureLocation, sprite->hasTexture ? 1 : 0);
-    }
-
     // Get and set camera matrices if there's an active camera
-    if (active_camera)
-    {
+    if (active_camera) {
         mat4x4 view, projection;
         rgfx_camera_get_matrices(active_camera, view, projection);
-
-        // Set view and projection matrices in shader
         glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uView"), 1, GL_FALSE, (float*)view);
         glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uProjection"), 1, GL_FALSE, (float*)projection);
-    }
-    else
-    {
-        // Use identity matrices if no camera is active
+    } else {
         mat4x4 identity;
         mat4x4_identity(identity);
         glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uView"), 1, GL_FALSE, (float*)identity);
         glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uProjection"), 1, GL_FALSE, (float*)identity);
     }
 
-    // Handle texture if it exists
-    if (sprite->hasTexture && sprite->textureID > 0)
-    {
+    // Bind texture if available
+    if (sprite->hasTexture) {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, sprite->textureID);
-
-        int textureLoc = glGetUniformLocation(sprite->shaderProgram, "uTexture");
-        if (textureLoc != -1)
-        {
-            glUniform1i(textureLoc, 0);
-        }
-
-        int useTextureLoc = glGetUniformLocation(sprite->shaderProgram, "uUseTexture");
-        if (useTextureLoc != -1)
-        {
-            glUniform1i(useTextureLoc, 1);
-        }
-    }
-    else if (glGetUniformLocation(sprite->shaderProgram, "uUseTexture") != -1)
-    {
-        glUniform1i(glGetUniformLocation(sprite->shaderProgram, "uUseTexture"), 0);
+        glUniform1i(glGetUniformLocation(sprite->shaderProgram, "uTexture"), 0);
     }
 
+    // Bind VAO and draw the sprite
     glBindVertexArray(sprite->VAO);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
-
-    if (sprite->hasTexture && sprite->textureID > 0)
-    {
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
 }
 
-// Sprite properties setters and getters
-// Improved setters using linmath's vec*_dup functions
-void rgfx_sprite_set_position(rgfx_sprite_t* sprite, vec3 position)
-{
-    if (sprite)
-    {
-        // Use the built-in vec3_dup function instead of element-by-element assignment
-        vec3_dup(sprite->position, position);
-    }
-}
+rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc) {
+    if (!desc || !desc->font_path || !desc->text) return NULL;
 
-void rgfx_sprite_set_size(rgfx_sprite_t* sprite, vec2 size)
-{
-    if (sprite)
-    {
-        // Use the built-in vec2_dup function instead of element-by-element assignment
-        vec2_dup(sprite->size, size);
-    }
-}
+    rgfx_text_t* text = (rgfx_text_t*)calloc(1, sizeof(rgfx_text_t));
+    if (!text) return NULL;
 
-void rgfx_sprite_set_color(rgfx_sprite_t* sprite, color color)
-{
-    if (sprite)
-    {
-        sprite->color = color;
-    }
-}
-
-// Getter functions can also use vec*_dup
-void rgfx_sprite_get_position(rgfx_sprite_t* sprite, vec3 out_position)
-{
-    if (sprite && out_position)
-    {
-        // Use vec3_dup instead of manual assignment
-        vec3_dup(out_position, sprite->position);
-    }
-    else if (out_position)
-    {
-        // Zero-initialize
-        out_position[0] = 0.0f;
-        out_position[1] = 0.0f;
-        out_position[2] = 0.0f;
-    }
-}
-
-void rgfx_sprite_get_size(rgfx_sprite_t* sprite, vec2 out_size)
-{
-    if (sprite && out_size)
-    {
-        // Use vec2_dup instead of manual assignment
-        vec2_dup(out_size, sprite->size);
-    }
-    else if (out_size)
-    {
-        // Zero-initialize
-        out_size[0] = 0.0f;
-        out_size[1] = 0.0f;
-    }
-}
-
-color rgfx_sprite_get_color(rgfx_sprite_t* sprite)
-{
-    color result = { 0 };
-    if (sprite)
-    {
-        result = sprite->color;
-    }
-    return result;
-}
-
-// Load texture from file
-unsigned int rgfx_load_texture(const char* filepath)
-{
-    if (!filepath)
-        return 0;
-
-    // Generate texture
-    unsigned int textureID;
-    glGenTextures(1, &textureID);
-
-    // Load image data using stb_image
-    int width, height, channels;
-    stbi_set_flip_vertically_on_load(true); // Flip y-axis during loading
-    unsigned char* data = stbi_load(filepath, &width, &height, &channels, 0);
-
-    if (data)
-    {
-        GLenum format;
-        if (channels == 1)
-            format = GL_RED;
-        else if (channels == 3)
-            format = GL_RGB;
-        else if (channels == 4)
-            format = GL_RGBA;
-        else
-        {
-            printf("ERROR: Unsupported texture format with %d channels\n", channels);
-            stbi_image_free(data);
-            glDeleteTextures(1, &textureID);
-            return 0;
-        }
-
-        // Bind and set texture parameters
-        glBindTexture(GL_TEXTURE_2D, textureID);
-
-        // Set texture parameters
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        // Upload texture data
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-
-        // Free image data
-        stbi_image_free(data);
-
-        return textureID;
-    }
-    else
-    {
-        rlog_error("Failed to load texture: %s\n", filepath);
-        glDeleteTextures(1, &textureID);
-        return 0;
-    }
-}
-
-void rgfx_delete_texture(unsigned int textureID)
-{
-    if (textureID > 0)
-    {
-        glDeleteTextures(1, &textureID);
-    }
-}
-
-// Set texture for a sprite
-void rgfx_sprite_set_texture(rgfx_sprite_t* sprite, unsigned int textureID)
-{
-    if (!sprite)
-        return;
-
-    sprite->textureID  = textureID;
-    sprite->hasTexture = (textureID > 0);
-}
-
-// Get texture ID from sprite
-unsigned int rgfx_sprite_get_texture_id(rgfx_sprite_t* sprite)
-{
-    return sprite ? sprite->textureID : 0;
-}
-
-rgfx_camera_t* rgfx_camera_create(const rgfx_camera_desc_t* desc)
-{
-    if (!desc)
+    text->line_spacing = desc->line_spacing > 0.0f ? desc->line_spacing : 1.2f;
+    
+    // Create transform component
+    text->transform = rtransform_create();
+    if (!text->transform) {
+        free(text);
         return NULL;
-
-    rgfx_camera_t* camera = (rgfx_camera_t*)malloc(sizeof(rgfx_camera_t));
-    if (!camera)
-        return NULL;
-
-    vec3_dup(camera->position, desc->position);
-
-    // Calculate forward direction from position to target
-    vec3 direction;
-    vec3_sub(direction, desc->target, desc->position);
-    vec3_norm(camera->forward, direction); // Store normalized direction
-
-    vec3_dup(camera->up, desc->up);
-    camera->fov    = desc->fov;
-    camera->aspect = desc->aspect;
-    camera->near   = desc->near;
-    camera->far    = desc->far;
-
-    return camera;
-}
-
-void rgfx_camera_destroy(rgfx_camera_t* camera)
-{
-    if (camera)
-    {
-        if (active_camera == camera)
-        {
-            active_camera = NULL;
-        }
-        free(camera);
-    }
-}
-
-void rgfx_camera_set_position(rgfx_camera_t* camera, vec3 position)
-{
-    if (camera)
-    {
-        vec3_dup(camera->position, position);
-    }
-}
-
-void rgfx_camera_set_target(rgfx_camera_t* camera, vec3 target)
-{
-    if (camera)
-    {
-        // Calculate direction vector from camera position to target
-        vec3 direction;
-        direction[0] = target[0] - camera->position[0];
-        direction[1] = target[1] - camera->position[1];
-        direction[2] = target[2] - camera->position[2];
-
-        // Normalize the direction vector
-        vec3_norm(direction, direction);
-
-        // Set the camera's forward direction
-        vec3_dup(camera->forward, direction);
-    }
-}
-
-void rgfx_camera_get_matrices(const rgfx_camera_t* camera, mat4x4 view, mat4x4 projection)
-{
-    if (!camera)
-    {
-        mat4x4_identity(view);
-        mat4x4_identity(projection);
-        return;
     }
 
-    // Calculate target point by adding forward direction to position
-    vec3 target;
-    vec3_add(target, camera->position, camera->forward);
+    // Initialize transform with descriptor position
+    vec3 pos;
+    vec3_dup(pos, desc->position);
+    rtransform_set_position(text->transform, pos);
 
-    // Calculate view matrix using position and target point
-    mat4x4_look_at(view, camera->position, target, camera->up);
-
-    // Calculate projection matrix
-    mat4x4_perspective(projection, camera->fov, camera->aspect, camera->near, camera->far);
-}
-
-void rgfx_set_active_camera(rgfx_camera_t* camera)
-{
-    active_camera = camera;
-}
-
-void rgfx_camera_set_direction(rgfx_camera_t* camera, vec3 direction)
-{
-    if (camera)
-    {
-        vec3_norm(camera->forward, direction); // Normalize the direction vector
-    }
-}
-
-void rgfx_camera_move(rgfx_camera_t* camera, vec3 offset)
-{
-    if (camera)
-    {
-        vec3_add(camera->position, camera->position, offset);
-    }
-}
-
-void rgfx_camera_rotate(rgfx_camera_t* camera, float yaw, float pitch)
-{
-    if (!camera)
-        return;
-
-    // Convert angles to radians
-    float yaw_rad   = yaw * (3.14159f / 180.0f);
-    float pitch_rad = pitch * (3.14159f / 180.0f);
-
-    // Calculate new forward direction
-    camera->forward[0] = cosf(yaw_rad) * cosf(pitch_rad);
-    camera->forward[1] = sinf(pitch_rad);
-    camera->forward[2] = sinf(yaw_rad) * cosf(pitch_rad);
-
-    vec3_norm(camera->forward, camera->forward);
-}
-
-void rgfx_camera_look_at(rgfx_camera_t* camera, vec3 target)
-{
-    if (!camera)
-        return;
-
-    // Calculate direction vector from camera position to target
-    vec3 direction;
-    direction[0] = target[0] - camera->position[0];
-    direction[1] = target[1] - camera->position[1];
-    direction[2] = target[2] - camera->position[2];
-
-    // Normalize the direction vector
-    vec3_norm(direction, direction);
-
-    // Set the camera's forward direction
-    vec3_dup(camera->forward, direction);
-}
-
-// Uniform API implementations
-void rgfx_sprite_set_uniform_float(rgfx_sprite_t* sprite, const char* name, float value)
-{
-    if (!sprite || !name)
-        return;
-
-    // First check if the uniform already exists
-    for (int i = 0; i < sprite->uniform_count; i++)
-    {
-        if (strcmp(sprite->uniforms[i].name, name) == 0)
-        {
-            sprite->uniforms[i].type      = RGFX_UNIFORM_FLOAT;
-            sprite->uniforms[i].float_val = value;
-            return;
-        }
-    }
-
-    // If not found and we have room, add a new uniform
-    if (sprite->uniform_count < RGFX_MAX_UNIFORMS)
-    {
-        sprite->uniforms[sprite->uniform_count].name      = name;
-        sprite->uniforms[sprite->uniform_count].type      = RGFX_UNIFORM_FLOAT;
-        sprite->uniforms[sprite->uniform_count].float_val = value;
-        sprite->uniform_count++;
-    }
-}
-
-void rgfx_sprite_set_uniform_int(rgfx_sprite_t* sprite, const char* name, int value)
-{
-    if (!sprite || !name)
-        return;
-
-    // First check if the uniform already exists
-    for (int i = 0; i < sprite->uniform_count; i++)
-    {
-        if (strcmp(sprite->uniforms[i].name, name) == 0)
-        {
-            sprite->uniforms[i].type    = RGFX_UNIFORM_INT;
-            sprite->uniforms[i].int_val = value;
-            return;
-        }
-    }
-
-    // If not found and we have room, add a new uniform
-    if (sprite->uniform_count < RGFX_MAX_UNIFORMS)
-    {
-        sprite->uniforms[sprite->uniform_count].name    = name;
-        sprite->uniforms[sprite->uniform_count].type    = RGFX_UNIFORM_INT;
-        sprite->uniforms[sprite->uniform_count].int_val = value;
-        sprite->uniform_count++;
-    }
-}
-
-void rgfx_sprite_set_uniform_vec2(rgfx_sprite_t* sprite, const char* name, vec2 value)
-{
-    if (!sprite || !name)
-        return;
-
-    // First check if the uniform already exists
-    for (int i = 0; i < sprite->uniform_count; i++)
-    {
-        if (strcmp(sprite->uniforms[i].name, name) == 0)
-        {
-            sprite->uniforms[i].type = RGFX_UNIFORM_VEC2;
-            vec2_dup(sprite->uniforms[i].vec2_val, value);
-            return;
-        }
-    }
-
-    // If not found and we have room, add a new uniform
-    if (sprite->uniform_count < RGFX_MAX_UNIFORMS)
-    {
-        sprite->uniforms[sprite->uniform_count].name = name;
-        sprite->uniforms[sprite->uniform_count].type = RGFX_UNIFORM_VEC2;
-        vec2_dup(sprite->uniforms[sprite->uniform_count].vec2_val, value);
-        sprite->uniform_count++;
-    }
-}
-
-void rgfx_sprite_set_uniform_vec3(rgfx_sprite_t* sprite, const char* name, vec3 value)
-{
-    if (!sprite || !name)
-        return;
-
-    // First check if the uniform already exists
-    for (int i = 0; i < sprite->uniform_count; i++)
-    {
-        if (strcmp(sprite->uniforms[i].name, name) == 0)
-        {
-            sprite->uniforms[i].type = RGFX_UNIFORM_VEC3;
-            vec3_dup(sprite->uniforms[i].vec3_val, value);
-            return;
-        }
-    }
-
-    // If not found and we have room, add a new uniform
-    if (sprite->uniform_count < RGFX_MAX_UNIFORMS)
-    {
-        sprite->uniforms[sprite->uniform_count].name = name;
-        sprite->uniforms[sprite->uniform_count].type = RGFX_UNIFORM_VEC3;
-        vec3_dup(sprite->uniforms[sprite->uniform_count].vec3_val, value);
-        sprite->uniform_count++;
-    }
-}
-
-void rgfx_sprite_set_uniform_vec4(rgfx_sprite_t* sprite, const char* name, vec4 value)
-{
-    if (!sprite || !name)
-        return;
-
-    // First check if the uniform already exists
-    for (int i = 0; i < sprite->uniform_count; i++)
-    {
-        if (strcmp(sprite->uniforms[i].name, name) == 0)
-        {
-            sprite->uniforms[i].type = RGFX_UNIFORM_VEC4;
-            vec4_dup(sprite->uniforms[i].vec4_val, value);
-            return;
-        }
-    }
-
-    // If not found and we have room, add a new uniform
-    if (sprite->uniform_count < RGFX_MAX_UNIFORMS)
-    {
-        sprite->uniforms[sprite->uniform_count].name = name;
-        sprite->uniforms[sprite->uniform_count].type = RGFX_UNIFORM_VEC4;
-        vec4_dup(sprite->uniforms[sprite->uniform_count].vec4_val, value);
-        sprite->uniform_count++;
-    }
-}
-
-// Text implementation with stb_truetype
-rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc)
-{
-    if (!desc || !desc->font_path || !desc->text)
-        return NULL;
-
-    rgfx_text_t* text  = (rgfx_text_t*)calloc(1, sizeof(rgfx_text_t));
-    text->line_spacing = 1.2f;
-    // Initialize alignment from descriptor
-    text->alignment = desc->alignment;
-    if (!text)
-        return NULL;
-
-    // Initialize basic properties
-    vec3_dup(text->position, desc->position);
+    // Initialize text properties
     text->text_color = desc->text_color;
-    text->font_size  = desc->font_size;
-
+    text->font_size = desc->font_size;
+    text->alignment = desc->alignment;
+    
     // Copy text with length limit
     strncpy(text->text, desc->text, RGFX_MAX_TEXT_LENGTH - 1);
     text->text[RGFX_MAX_TEXT_LENGTH - 1] = '\0';
 
     // Load font file
-    FILE* font_file = fopen(desc->font_path, "rb");
-    if (!font_file)
-    {
-        rlog_error("Failed to open font file: %s", desc->font_path);
+    FILE* fontFile = fopen(desc->font_path, "rb");
+    if (!fontFile) {
+        free(text->transform);
         free(text);
         return NULL;
     }
 
-    // Get file size
-    fseek(font_file, 0, SEEK_END);
-    long font_size = ftell(font_file);
-    fseek(font_file, 0, SEEK_SET);
+    fseek(fontFile, 0, SEEK_END);
+    long fontFileSize = ftell(fontFile);
+    fseek(fontFile, 0, SEEK_SET);
 
-    // Load entire TTF file into memory
-    text->font_buffer = (unsigned char*)malloc(font_size);
-    if (!text->font_buffer)
-    {
-        rlog_error("Failed to allocate memory for font");
-        fclose(font_file);
+    text->font_buffer = (unsigned char*)malloc(fontFileSize);
+    if (!text->font_buffer) {
+        fclose(fontFile);
+        free(text->transform);
         free(text);
         return NULL;
     }
 
-    size_t bytes_read = fread(text->font_buffer, 1, font_size, font_file);
-    fclose(font_file);
-
-    if (bytes_read != (size_t)font_size)
-    {
-        rlog_error("Failed to read font file");
-        free(text->font_buffer);
-        free(text);
-        return NULL;
-    }
+    fread(text->font_buffer, 1, fontFileSize, fontFile);
+    fclose(fontFile);
 
     // Initialize font
-    if (!stbtt_InitFont(&text->font_info, text->font_buffer, 0))
-    {
-        rlog_error("Failed to initialize font");
+    if (!stbtt_InitFont(&text->font_info, text->font_buffer, 0)) {
         free(text->font_buffer);
+        free(text->transform);
         free(text);
         return NULL;
     }
 
-    // Create bitmap for the text
-    text->bitmap_width  = 0;
-    text->bitmap_height = 0;
-    text->font_bitmap   = NULL;
-
-    // Generate the bitmap for the text
-    if (!rgfx_text_update_bitmap(text))
-    {
-        free(text->font_buffer);
-        free(text);
-        return NULL;
-    }
-
-    // Load shader files instead of using embedded shaders
-    char* vertexSource = rgfx_load_shader_source("assets/shaders/text.vert");
-    if (!vertexSource)
-    {
-        rlog_error("Failed to load text vertex shader");
-        free(text->font_buffer);
-        free(text->font_bitmap);
-        free(text);
-        return NULL;
-    }
-
-    char* fragmentSource = rgfx_load_shader_source("assets/shaders/text.frag");
-    if (!fragmentSource)
-    {
-        rlog_error("Failed to load text fragment shader");
-        free(vertexSource);
-        free(text->font_buffer);
-        free(text->font_bitmap);
-        free(text);
-        return NULL;
-    }
-
-    // Create shader program
-    text->shaderProgram = _create_shader_program(vertexSource, fragmentSource);
-    if (text->shaderProgram == 0)
-    {
-        free(text->font_buffer);
-        free(text->font_bitmap);
-        free(text);
-        return NULL;
-    }
-
-    // Setup VAO, VBO, EBO for rendering
+    // Create vertex buffer for text quad
     float vertices[] = {
-        // positions        // texture coords
-        0.0f, 1.0f, 0.0f, 0.0f, 0.0f, // top left
-        1.0f, 1.0f, 0.0f, 1.0f, 0.0f, // top right
-        1.0f, 0.0f, 0.0f, 1.0f, 1.0f, // bottom right
-        0.0f, 0.0f, 0.0f, 0.0f, 1.0f  // bottom left
+        // positions    // texture coords
+        -0.5f, -0.5f,  0.0f, 0.0f,
+         0.5f, -0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f,  1.0f, 1.0f,
+        -0.5f,  0.5f,  0.0f, 1.0f
     };
 
     unsigned int indices[] = {
-        0, 1, 2, // first triangle
-        2, 3, 0  // second triangle
+        0, 1, 2,
+        2, 3, 0
     };
 
+    // Load shaders
+    char* vertexSource = rgfx_load_shader_source("assets/shaders/text.vert");
+    char* fragmentSource = rgfx_load_shader_source("assets/shaders/text.frag");
+
+    if (!vertexSource || !fragmentSource) {
+        if (vertexSource) free(vertexSource);
+        if (fragmentSource) free(fragmentSource);
+        free(text->font_buffer);
+        free(text->transform);
+        free(text);
+        return NULL;
+    }
+
+    text->shaderProgram = _create_shader_program(vertexSource, fragmentSource);
+    free(vertexSource);
+    free(fragmentSource);
+
+    if (!text->shaderProgram) {
+        free(text->font_buffer);
+        free(text->transform);
+        free(text);
+        return NULL;
+    }
+
+    // Create VAO and buffers
     glGenVertexArrays(1, &text->VAO);
     glGenBuffers(1, &text->VBO);
     glGenBuffers(1, &text->EBO);
@@ -1122,236 +641,38 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc)
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
     // Position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
     // Texture coord attribute
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    // Generate texture for text
-    glGenTextures(1, &text->textureID);
-    glBindTexture(GL_TEXTURE_2D, text->textureID);
-
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-
-    glTexImage2D(GL_TEXTURE_2D,
-                 0,
-                 GL_R8,
-                 text->bitmap_width,
-                 text->bitmap_height,
-                 0,
-                 GL_RED,
-                 GL_UNSIGNED_BYTE,
-                 text->font_bitmap);
-    glHint(GL_GENERATE_MIPMAP_HINT, GL_NICEST);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    glBindTexture(GL_TEXTURE_2D, 0);
+    // Generate bitmap texture for text
+    if (!rgfx_text_update_bitmap(text)) {
+        glDeleteVertexArrays(1, &text->VAO);
+        glDeleteBuffers(1, &text->VBO);
+        glDeleteBuffers(1, &text->EBO);
+        glDeleteProgram(text->shaderProgram);
+        free(text->font_buffer);
+        free(text->transform);
+        free(text);
+        return NULL;
+    }
 
     return text;
 }
 
-bool rgfx_text_update_bitmap(rgfx_text_t* text)
-{
-    if (!text)
-        return false;
+void rgfx_text_draw(rgfx_text_t* text) {
+    if (!text) return;
 
-    // Free existing bitmap if it exists
-    if (text->font_bitmap)
-    {
-        free(text->font_bitmap);
-        text->font_bitmap = NULL;
-    }
-
-    // Split text into lines
-    text_lines_t lines = split_text_into_lines(text->text);
-    if (lines.count == 0)
-    {
-        return false;
-    }
-
-    // Calculate scale for font size
-    float scale = stbtt_ScaleForPixelHeight(&text->font_info, text->font_size);
-
-    // Calculate text dimensions
-    int ascent, descent, line_gap;
-    stbtt_GetFontVMetrics(&text->font_info, &ascent, &descent, &line_gap);
-
-    ascent   = (int)(ascent * scale);
-    descent  = (int)(descent * scale);
-    line_gap = (int)(line_gap * scale);
-
-    // Calculate line height including spacing
-    float line_spacing = text->line_spacing > 0 ? text->line_spacing : 1.2f;
-    int   line_height  = (int)((ascent - descent) * line_spacing);
-
-    // First pass: calculate total width and height
-    int total_width = 0;
-    int line_widths[lines.count];
-
-    for (int i = 0; i < lines.count; i++)
-    {
-        int line_width = 0;
-        for (const char* p = lines.lines[i]; *p; p++)
-        {
-            int advance, lsb;
-            stbtt_GetCodepointHMetrics(&text->font_info, *p, &advance, &lsb);
-            line_width += (int)(advance * scale);
-
-            // Add kerning with next character
-            if (*(p + 1))
-            {
-                line_width += (int)(stbtt_GetCodepointKernAdvance(&text->font_info, *p, *(p + 1)) * scale);
-            }
-        }
-
-        line_widths[i] = line_width;
-        if (line_width > total_width)
-        {
-            total_width = line_width;
-        }
-    }
-
-    // Calculate total height (with padding)
-    int total_height = lines.count * line_height + 10; // Add some padding
-
-    // Create bitmap with dimensions
-    text->bitmap_width  = total_width + 8; // Add padding
-    text->bitmap_height = total_height;
-
-    text->font_bitmap = (unsigned char*)calloc(text->bitmap_width * text->bitmap_height, 1);
-    if (!text->font_bitmap)
-    {
-        rlog_error("Failed to allocate memory for text bitmap");
-        free_text_lines(&lines);
-        return false;
-    }
-
-    // Second pass: render each line into the bitmap
-    int y = ascent + 4; // Start position (baseline) with some padding
-
-    for (int i = 0; i < lines.count; i++)
-    {
-        // Calculate starting x position based on alignment
-        int x = 4; // Default left alignment with padding
-
-        if (text->alignment == RGFX_TEXT_ALIGN_CENTER)
-        {
-            x = (text->bitmap_width - line_widths[i]) / 2;
-        }
-        else if (text->alignment == RGFX_TEXT_ALIGN_RIGHT)
-        {
-            x = text->bitmap_width - line_widths[i] - 4; // Padding
-        }
-
-        // Render each character in the line
-        for (const char* p = lines.lines[i]; *p; p++)
-        {
-            // Get character bitmap
-            int c_x1, c_y1, c_x2, c_y2;
-            stbtt_GetCodepointBitmapBox(&text->font_info, *p, scale, scale, &c_x1, &c_y1, &c_x2, &c_y2);
-
-            // Render character
-            int            w, h, xoff, yoff;
-            unsigned char* bitmap = stbtt_GetCodepointBitmap(&text->font_info, scale, scale, *p, &w, &h, &xoff, &yoff);
-
-            // Copy character bitmap to our text bitmap
-            for (int row = 0; row < h; row++)
-            {
-                for (int col = 0; col < w; col++)
-                {
-                    if (x + col + xoff >= 0 && x + col + xoff < text->bitmap_width && y + row + yoff >= 0 &&
-                        y + row + yoff < text->bitmap_height)
-                    {
-                        text->font_bitmap[(y + row + yoff) * text->bitmap_width + (x + col + xoff)] =
-                            bitmap[row * w + col];
-                    }
-                }
-            }
-
-            // Move to next character position
-            int advance, lsb;
-            stbtt_GetCodepointHMetrics(&text->font_info, *p, &advance, &lsb);
-            x += (int)(advance * scale);
-
-            // Add kerning with next character
-            if (*(p + 1))
-            {
-                x += (int)(stbtt_GetCodepointKernAdvance(&text->font_info, *p, *(p + 1)) * scale);
-            }
-
-            // Free character bitmap
-            stbtt_FreeBitmap(bitmap, NULL);
-        }
-
-        // Move to next line position
-        y += line_height;
-    }
-
-    // Free the lines
-    free_text_lines(&lines);
-    return true;
-}
-
-void rgfx_text_set_text(rgfx_text_t* text, const char* new_text)
-{
-    if (!text || !new_text)
-        return;
-
-    // Copy new text with length limit
-    strncpy(text->text, new_text, RGFX_MAX_TEXT_LENGTH - 1);
-    text->text[RGFX_MAX_TEXT_LENGTH - 1] = '\0';
-
-    // Update the bitmap
-    if (rgfx_text_update_bitmap(text))
-    {
-        // Update texture with new bitmap
-        glBindTexture(GL_TEXTURE_2D, text->textureID);
-        glTexImage2D(GL_TEXTURE_2D,
-                     0,
-                     GL_RED,
-                     text->bitmap_width,
-                     text->bitmap_height,
-                     0,
-                     GL_RED,
-                     GL_UNSIGNED_BYTE,
-                     text->font_bitmap);
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
-}
-
-void rgfx_text_draw(rgfx_text_t* text)
-{
-    if (!text)
-        return;
-
-    // Use shader program
     glUseProgram(text->shaderProgram);
 
-    // Use a larger scale factor for bigger text in world space
-    float scale_factor = 0.015f; // Increased 3x for better visibility
+    // Update transform
+    rtransform_update(text->transform);
 
-    // Calculate dimensions
-    float width  = text->bitmap_width * scale_factor;
-    float height = text->bitmap_height * scale_factor;
-
-    // Center text horizontally at its position
-    glUniform3f(glGetUniformLocation(text->shaderProgram, "uPosition"),
-                text->position[0] - (width / 2),
-                text->position[1],
-                text->position[2]);
-
-    // Set size uniform
-    glUniform2f(glGetUniformLocation(text->shaderProgram, "uSize"), width, height);
+    // Set model matrix from transform's world matrix
+    glUniformMatrix4fv(glGetUniformLocation(text->shaderProgram, "uModel"), 1, GL_FALSE, (float*)text->transform->world);
 
     // Set color uniform
     glUniform3f(glGetUniformLocation(text->shaderProgram, "uColor"),
@@ -1360,16 +681,12 @@ void rgfx_text_draw(rgfx_text_t* text)
                 text->text_color.b);
 
     // Handle camera matrices
-    if (active_camera)
-    {
+    if (active_camera) {
         mat4x4 view, projection;
         rgfx_camera_get_matrices(active_camera, view, projection);
-
         glUniformMatrix4fv(glGetUniformLocation(text->shaderProgram, "uView"), 1, GL_FALSE, (float*)view);
         glUniformMatrix4fv(glGetUniformLocation(text->shaderProgram, "uProjection"), 1, GL_FALSE, (float*)projection);
-    }
-    else
-    {
+    } else {
         mat4x4 identity;
         mat4x4_identity(identity);
         glUniformMatrix4fv(glGetUniformLocation(text->shaderProgram, "uView"), 1, GL_FALSE, (float*)identity);
@@ -1385,258 +702,350 @@ void rgfx_text_draw(rgfx_text_t* text)
     glBindVertexArray(text->VAO);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
-    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void rgfx_text_destroy(rgfx_text_t* text)
-{
-    if (!text)
-        return;
+// Update position setters to use transform
+void rgfx_sprite_set_position(rgfx_sprite_t* sprite, vec3 position) {
+    if (sprite && sprite->transform) {
+        vec3 pos;
+        memcpy(pos, position, sizeof(vec3));
+        rtransform_set_position(sprite->transform, pos);
+    }
+}
 
-    // Delete OpenGL resources
+void rgfx_text_set_position(rgfx_text_t* text, vec3 position) {
+    if (text && text->transform) {
+        vec3 pos;
+        memcpy(pos, position, sizeof(vec3));
+        rtransform_set_position(text->transform, pos);
+    }
+}
+
+// Add rotation setters
+void rgfx_sprite_set_rotation(rgfx_sprite_t* sprite, float rotation) {
+    if (sprite && sprite->transform) {
+        vec3 z_axis = {0.0f, 0.0f, 1.0f};
+        rtransform_set_rotation_axis_angle(sprite->transform, z_axis, rotation);
+    }
+}
+
+void rgfx_text_set_rotation(rgfx_text_t* text, float rotation) {
+    if (text && text->transform) {
+        vec3 z_axis = {0.0f, 0.0f, 1.0f};
+        rtransform_set_rotation_axis_angle(text->transform, z_axis, rotation);
+    }
+}
+
+// Get world position for both sprite and text
+void rgfx_sprite_get_world_position(rgfx_sprite_t* sprite, vec3 out_position) {
+    if (sprite && sprite->transform) {
+        rtransform_get_world_position(sprite->transform, out_position);
+    } else if (out_position) {
+        out_position[0] = out_position[1] = out_position[2] = 0.0f;
+    }
+}
+
+void rgfx_text_get_world_position(rgfx_text_t* text, vec3 out_position) {
+    if (text && text->transform) {
+        rtransform_get_world_position(text->transform, out_position);
+    } else if (out_position) {
+        out_position[0] = out_position[1] = out_position[2] = 0.0f;
+    }
+}
+
+// Transform getters
+rtransform_t* rgfx_sprite_get_transform(rgfx_sprite_t* sprite) {
+    return sprite ? sprite->transform : NULL;
+}
+
+rtransform_t* rgfx_text_get_transform(rgfx_text_t* text) {
+    return text ? text->transform : NULL;
+}
+
+// Parent-child relationship functions
+void rgfx_sprite_set_parent(rgfx_sprite_t* sprite, rgfx_sprite_t* parent) {
+    if (sprite && sprite->transform) {
+        rtransform_set_parent(sprite->transform, parent ? parent->transform : NULL);
+    }
+}
+
+void rgfx_text_set_parent(rgfx_text_t* text, rgfx_sprite_t* parent) {
+    if (text && text->transform) {
+        rtransform_set_parent(text->transform, parent ? parent->transform : NULL);
+    }
+}
+
+rgfx_camera_t* rgfx_camera_create(const rgfx_camera_desc_t* desc) {
+    if (!desc) return NULL;
+
+    rgfx_camera_t* camera = (rgfx_camera_t*)malloc(sizeof(rgfx_camera_t));
+    if (!camera) return NULL;
+
+    // Initialize camera properties
+    vec3_dup(camera->position, desc->position);
+    
+    // Calculate forward vector from position and target
+    vec3 forward;
+    vec3_sub(forward, desc->target, desc->position);
+    vec3_norm(camera->forward, forward);
+    
+    // Store up vector
+    vec3_dup(camera->up, desc->up);
+    
+    // Store projection parameters
+    camera->fov = desc->fov;
+    camera->aspect = desc->aspect;
+    camera->near = desc->near;
+    camera->far = desc->far;
+
+    return camera;
+}
+
+void rgfx_camera_destroy(rgfx_camera_t* camera) {
+    if (camera) {
+        if (camera == active_camera) {
+            active_camera = NULL;
+        }
+        free(camera);
+    }
+}
+
+void rgfx_camera_set_position(rgfx_camera_t* camera, vec3 position) {
+    if (camera) {
+        vec3_dup(camera->position, position);
+    }
+}
+
+void rgfx_camera_get_matrices(const rgfx_camera_t* camera, mat4x4 view, mat4x4 projection) {
+    if (!camera) return;
+
+    // Calculate view matrix using look_at
+    mat4x4_look_at(view, 
+                   camera->position,
+                   (vec3){camera->position[0] + camera->forward[0],
+                         camera->position[1] + camera->forward[1],
+                         camera->position[2] + camera->forward[2]},
+                   camera->up);
+
+    // Calculate projection matrix
+    mat4x4_perspective(projection,
+                      camera->fov,
+                      camera->aspect,
+                      camera->near,
+                      camera->far);
+}
+
+void rgfx_set_active_camera(rgfx_camera_t* camera) {
+    active_camera = camera;
+}
+
+// Texture loading implementation
+unsigned int rgfx_load_texture(const char* filepath) {
+    if (!filepath) return 0;
+
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+    
+    int width, height, channels;
+    unsigned char* data = stbi_load(filepath, &width, &height, &channels, 0);
+    if (!data) {
+        rlog_error("Failed to load texture: %s\n", filepath);
+        return 0;
+    }
+
+    GLenum format = channels == 4 ? GL_RGBA : GL_RGB;
+
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    // Set texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    stbi_image_free(data);
+    return textureID;
+}
+
+// Text bitmap update implementation
+bool rgfx_text_update_bitmap(rgfx_text_t* text) {
+    if (!text || !text->text[0]) return false;
+
+    // Calculate bitmap dimensions
+    float scale = stbtt_ScaleForPixelHeight(&text->font_info, text->font_size);
+    int ascent, descent, lineGap;
+    stbtt_GetFontVMetrics(&text->font_info, &ascent, &descent, &lineGap);
+
+    // Calculate text dimensions
+    int text_width = 0;
+    int text_height = (int)((ascent - descent) * scale);
+    
+    // Calculate total width
+    const char* p = text->text;
+    while (*p) {
+        int advance, lsb;
+        stbtt_GetCodepointHMetrics(&text->font_info, *p, &advance, &lsb);
+        text_width += (int)(advance * scale);
+        p++;
+    }
+
+    // Create bitmap with some padding
+    text->bitmap_width = text_width + 4;
+    text->bitmap_height = text_height + 4;
+    
+    // Allocate bitmap memory
+    text->font_bitmap = (unsigned char*)realloc(text->font_bitmap, 
+                                              text->bitmap_width * text->bitmap_height);
+    if (!text->font_bitmap) return false;
+
+    // Clear bitmap
+    memset(text->font_bitmap, 0, text->bitmap_width * text->bitmap_height);
+
+    // Render text into bitmap
+    int x = 2;
+    int y = 2 + (int)(ascent * scale);
+    
+    p = text->text;
+    while (*p) {
+        int advance, lsb;
+        stbtt_GetCodepointHMetrics(&text->font_info, *p, &advance, &lsb);
+        
+        // Render glyph
+        int c_x1, c_y1, c_x2, c_y2;
+        stbtt_GetCodepointBitmapBox(&text->font_info, *p, scale, scale,
+                                   &c_x1, &c_y1, &c_x2, &c_y2);
+        
+        stbtt_MakeCodepointBitmap(&text->font_info, 
+                                 text->font_bitmap + x + (y + c_y1) * text->bitmap_width,
+                                 c_x2 - c_x1, c_y2 - c_y1,
+                                 text->bitmap_width,
+                                 scale, scale,
+                                 *p);
+        
+        x += (int)(advance * scale);
+        
+        // Handle kerning
+        if (*(p + 1)) {
+            int kern = stbtt_GetCodepointKernAdvance(&text->font_info, *p, *(p + 1));
+            x += (int)(kern * scale);
+        }
+        p++;
+    }
+
+    // Generate or update texture
+    if (!text->textureID) {
+        glGenTextures(1, &text->textureID);
+    }
+    
+    glBindTexture(GL_TEXTURE_2D, text->textureID);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED,
+                 text->bitmap_width, text->bitmap_height,
+                 0, GL_RED, GL_UNSIGNED_BYTE, text->font_bitmap);
+
+    // Set texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    return true;
+}
+
+void rgfx_text_destroy(rgfx_text_t* text) {
+    if (!text) return;
+
+    if (text->font_buffer) {
+        free(text->font_buffer);
+    }
+    if (text->font_bitmap) {
+        free(text->font_bitmap);
+    }
+    if (text->textureID) {
+        glDeleteTextures(1, &text->textureID);
+    }
+    if (text->transform) {
+        rtransform_destroy(text->transform);
+    }
+
     glDeleteVertexArrays(1, &text->VAO);
     glDeleteBuffers(1, &text->VBO);
     glDeleteBuffers(1, &text->EBO);
-    glDeleteTextures(1, &text->textureID);
     glDeleteProgram(text->shaderProgram);
-
-    // Free memory
-    if (text->font_buffer)
-    {
-        free(text->font_buffer);
-    }
-
-    if (text->font_bitmap)
-    {
-        free(text->font_bitmap);
-    }
 
     free(text);
 }
 
-// Setter and getter functions
-void rgfx_text_set_position(rgfx_text_t* text, vec3 position)
-{
-    if (text)
-    {
-        vec3_dup(text->position, position);
-    }
-}
+// Uniform setters
+void rgfx_sprite_set_uniform_float(rgfx_sprite_t* sprite, const char* name, float value) {
+    if (!sprite || !name || sprite->uniform_count >= RGFX_MAX_UNIFORMS) return;
 
-void rgfx_text_set_color(rgfx_text_t* text, color color)
-{
-    if (text)
-    {
-        text->text_color = color;
-    }
-}
-
-void rgfx_text_set_font_size(rgfx_text_t* text, float size)
-{
-    if (!text || size <= 0)
-        return;
-
-    text->font_size = size;
-
-    // Update the bitmap with new font size
-    if (rgfx_text_update_bitmap(text))
-    {
-        // Update texture
-        glBindTexture(GL_TEXTURE_2D, text->textureID);
-        glTexImage2D(GL_TEXTURE_2D,
-                     0,
-                     GL_RED,
-                     text->bitmap_width,
-                     text->bitmap_height,
-                     0,
-                     GL_RED,
-                     GL_UNSIGNED_BYTE,
-                     text->font_bitmap);
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
-}
-
-void rgfx_text_get_position(rgfx_text_t* text, vec3 out_position)
-{
-    if (text && out_position)
-    {
-        vec3_dup(out_position, text->position);
-    }
-    else if (out_position)
-    {
-        out_position[0] = 0.0f;
-        out_position[1] = 0.0f;
-        out_position[2] = 0.0f;
-    }
-}
-
-color rgfx_text_get_color(rgfx_text_t* text)
-{
-    color result = { 0 };
-    if (text)
-    {
-        result = text->text_color;
-    }
-    return result;
-}
-
-float rgfx_text_get_font_size(rgfx_text_t* text)
-{
-    return text ? text->font_size : 0.0f;
-}
-
-const char* rgfx_text_get_text(rgfx_text_t* text)
-{
-    return text ? text->text : NULL;
-}
-
-void rgfx_text_set_alignment(rgfx_text_t* text, int alignment)
-{
-    if (!text)
-        return;
-
-    // Validate alignment value (0=left, 1=center, 2=right)
-    if (alignment < RGFX_TEXT_ALIGN_LEFT || alignment > RGFX_TEXT_ALIGN_RIGHT)
-    {
-        alignment = RGFX_TEXT_ALIGN_LEFT; // Default to left if invalid
-    }
-
-    if (text->alignment != alignment)
-    {
-        text->alignment = alignment;
-
-        // Update the bitmap with new alignment
-        if (rgfx_text_update_bitmap(text))
-        {
-            // Update texture
-            glBindTexture(GL_TEXTURE_2D, text->textureID);
-            glTexImage2D(GL_TEXTURE_2D,
-                         0,
-                         GL_RED,
-                         text->bitmap_width,
-                         text->bitmap_height,
-                         0,
-                         GL_RED,
-                         GL_UNSIGNED_BYTE,
-                         text->font_bitmap);
-            glBindTexture(GL_TEXTURE_2D, 0);
-        }
-    }
-}
-
-void rgfx_text_set_line_spacing(rgfx_text_t* text, float spacing)
-{
-    if (!text)
-        return;
-
-    // Validate spacing (reasonable limits)
-    if (spacing < 0.5f)
-        spacing = 0.5f;
-    if (spacing > 3.0f)
-        spacing = 3.0f;
-
-    if (text->line_spacing != spacing)
-    {
-        text->line_spacing = spacing;
-
-        // Update the bitmap with new line spacing
-        if (rgfx_text_update_bitmap(text))
-        {
-            // Update texture
-            glBindTexture(GL_TEXTURE_2D, text->textureID);
-            glTexImage2D(GL_TEXTURE_2D,
-                         0,
-                         GL_RED,
-                         text->bitmap_width,
-                         text->bitmap_height,
-                         0,
-                         GL_RED,
-                         GL_UNSIGNED_BYTE,
-                         text->font_bitmap);
-            glBindTexture(GL_TEXTURE_2D, 0);
-        }
-    }
-}
-
-int rgfx_text_get_alignment(rgfx_text_t* text)
-{
-    return text ? text->alignment : RGFX_TEXT_ALIGN_LEFT;
-}
-
-float rgfx_text_get_line_spacing(rgfx_text_t* text)
-{
-    return text ? text->line_spacing : 1.2f;
-}
-
-// Helper function to split text into lines
-static text_lines_t split_text_into_lines(const char* text)
-{
-    text_lines_t result = { NULL, 0 };
-    if (!text)
-        return result;
-
-    // Count number of lines (number of newlines + 1)
-    int line_count = 1;
-    for (const char* p = text; *p; p++)
-    {
-        if (*p == '\n')
-        {
-            line_count++;
+    // Look for existing uniform
+    for (int i = 0; i < sprite->uniform_count; i++) {
+        if (strcmp(sprite->uniforms[i].name, name) == 0) {
+            sprite->uniforms[i].type = RGFX_UNIFORM_FLOAT;
+            sprite->uniforms[i].float_val = value;
+            return;
         }
     }
 
-    // Allocate memory for line pointers
-    result.lines = (char**)malloc(line_count * sizeof(char*));
-    if (!result.lines)
-        return result;
-
-    result.count = line_count;
-
-    // Copy each line
-    const char* start      = text;
-    int         line_index = 0;
-
-    for (const char* p = text;; p++)
-    {
-        if (*p == '\n' || *p == '\0')
-        {
-            // Calculate line length
-            size_t len = p - start;
-
-            // Allocate and copy the line
-            result.lines[line_index] = (char*)malloc(len + 1);
-            if (result.lines[line_index])
-            {
-                strncpy(result.lines[line_index], start, len);
-                result.lines[line_index][len] = '\0';
-            }
-
-            line_index++;
-            start = p + 1;
-        }
-
-        if (*p == '\0')
-            break;
-    }
-
-    return result;
+    // Add new uniform
+    sprite->uniforms[sprite->uniform_count].name = name;
+    sprite->uniforms[sprite->uniform_count].type = RGFX_UNIFORM_FLOAT;
+    sprite->uniforms[sprite->uniform_count].float_val = value;
+    sprite->uniform_count++;
 }
 
-// Helper function to free text_lines_t
-static void free_text_lines(text_lines_t* lines)
-{
-    if (!lines || !lines->lines)
-        return;
+void rgfx_sprite_set_uniform_int(rgfx_sprite_t* sprite, const char* name, int value) {
+    if (!sprite || !name || sprite->uniform_count >= RGFX_MAX_UNIFORMS) return;
 
-    for (int i = 0; i < lines->count; i++)
-    {
-        if (lines->lines[i])
-        {
-            free(lines->lines[i]);
+    // Look for existing uniform
+    for (int i = 0; i < sprite->uniform_count; i++) {
+        if (strcmp(sprite->uniforms[i].name, name) == 0) {
+            sprite->uniforms[i].type = RGFX_UNIFORM_INT;
+            sprite->uniforms[i].int_val = value;
+            return;
         }
     }
 
-    free(lines->lines);
-    lines->lines = NULL;
-    lines->count = 0;
+    // Add new uniform
+    sprite->uniforms[sprite->uniform_count].name = name;
+    sprite->uniforms[sprite->uniform_count].type = RGFX_UNIFORM_INT;
+    sprite->uniforms[sprite->uniform_count].int_val = value;
+    sprite->uniform_count++;
+}
+
+// Generic transform functions
+void rgfx_set_parent(void* child, void* parent) {
+    if (!child) return;
+    
+    rtransform_t* child_transform = rgfx_get_transform(child);
+    rtransform_t* parent_transform = parent ? rgfx_get_transform(parent) : NULL;
+    
+    if (child_transform) {
+        rtransform_set_parent(child_transform, parent_transform);
+    }
+}
+
+rtransform_t* rgfx_get_transform(void* object) {
+    if (!object) return NULL;
+    // Check if it's a sprite or text object based on size
+    if (sizeof(rgfx_sprite_t) == sizeof(struct rgfx_sprite)) {
+        return ((rgfx_sprite_t*)object)->transform;
+    } else {
+        return ((rgfx_text_t*)object)->transform;
+    }
+}
+
+#include <string.h>
+
+rtransform_t* rtransform_get(void* object) {
+    if (!object) return NULL;
+    // Check if it's a sprite or text object based on size
+    if (sizeof(rgfx_sprite_t) == sizeof(struct rgfx_sprite)) {
+        return ((rgfx_sprite_t*)object)->transform;
+    } else {
+        return ((rgfx_text_t*)object)->transform;
+    }
 }

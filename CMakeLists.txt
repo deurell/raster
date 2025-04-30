@@ -35,6 +35,7 @@ add_library(raster STATIC
     src/raster/impl/raster_input.c
     src/raster/impl/raster_log.c
     src/raster/impl/raster_sfx.c
+    src/raster/impl/raster_transform.c
 )
 
 target_include_directories(raster 
