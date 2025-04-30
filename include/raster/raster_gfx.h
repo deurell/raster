@@ -8,6 +8,7 @@ extern "C"
 #include <stdbool.h>
 #include "linmath.h"
 #include "raster_math.h"
+#include "raster_transform.h"
 
     // Graphics context
     bool rgfx_init(void);
@@ -136,6 +137,18 @@ extern "C"
     void rgfx_sprite_set_uniform_vec2(rgfx_sprite_t* sprite, const char* name, vec2 value);
     void rgfx_sprite_set_uniform_vec3(rgfx_sprite_t* sprite, const char* name, vec3 value);
     void rgfx_sprite_set_uniform_vec4(rgfx_sprite_t* sprite, const char* name, vec4 value);
+
+    // Transform related sprite functions
+    void rgfx_sprite_set_parent(rgfx_sprite_t* sprite, rgfx_sprite_t* parent);
+    void rgfx_sprite_set_rotation(rgfx_sprite_t* sprite, float rotation);
+    void rgfx_sprite_get_world_position(rgfx_sprite_t* sprite, vec3 out_position);
+    rtransform_t* rgfx_sprite_get_transform(rgfx_sprite_t* sprite);
+
+    // Transform related text functions
+    void rgfx_text_set_parent(rgfx_text_t* text, rgfx_sprite_t* parent);
+    void rgfx_text_set_rotation(rgfx_text_t* text, float rotation);
+    void rgfx_text_get_world_position(rgfx_text_t* text, vec3 out_position);
+    rtransform_t* rgfx_text_get_transform(rgfx_text_t* text);
 
     // Camera type forward declaration
     typedef struct rgfx_camera rgfx_camera_t;
