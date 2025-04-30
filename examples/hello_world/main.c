@@ -143,8 +143,8 @@ int main(void)
 
     G.sprite_two = rgfx_sprite_create(&sprite_two_desc);
     
-    // Set up parent-child relationship
-    rgfx_sprite_set_parent(G.sprite_two, G.sprite_one);
+    // Set up parent-child relationship using generic system
+    rgfx_set_parent(G.sprite_two, G.sprite_one);
 
     rgfx_sprite_desc_t rasterbar_desc = {
         .position             = { 0.0f, 0.0f, 0.0f },

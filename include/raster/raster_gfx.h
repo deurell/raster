@@ -108,7 +108,6 @@ extern "C"
     void rgfx_sprite_set_size(rgfx_sprite_t* sprite, vec2 size);
     void rgfx_sprite_set_color(rgfx_sprite_t* sprite, color color);
     void rgfx_sprite_set_texture(rgfx_sprite_t* sprite, unsigned int textureID);
-    void rgfx_sprite_set_parent(rgfx_sprite_t* sprite, rgfx_sprite_t* parent);
 
     // Text properties
     void         rgfx_text_set_position(rgfx_text_t* text, vec3 position);

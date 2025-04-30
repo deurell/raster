@@ -27,16 +27,8 @@ typedef struct
 static text_lines_t split_text_into_lines(const char* text);
 static void         free_text_lines(text_lines_t* lines);
 
-// Type identifiers for transform objects
-typedef enum {
-    RTYPE_NONE = 0,
-    RTYPE_SPRITE,
-    RTYPE_TEXT
-} rgfx_type_t;
-
 // Common header for all renderable objects
 typedef struct {
-    rgfx_type_t type;
     rtransform_t* transform;
 } rgfx_header_t;
 
@@ -295,11 +287,8 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
         return NULL;
     }
 
-    // Set type
-    sprite->header.type = RTYPE_SPRITE;
-
     // Create transform component
-    sprite->header.transform = rtransform_create(sprite);
+    sprite->header.transform = rtransform_create();
     if (!sprite->header.transform)
     {
         free(sprite);
@@ -564,13 +553,10 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc) {
     rgfx_text_t* text = (rgfx_text_t*)calloc(1, sizeof(rgfx_text_t));
     if (!text) return NULL;
 
-    // Set type identifier
-    text->header.type = RTYPE_TEXT;
-
     text->line_spacing = desc->line_spacing > 0.0f ? desc->line_spacing : 1.2f;
     
     // Create transform component
-    text->header.transform = rtransform_create(text);
+    text->header.transform = rtransform_create();
     if (!text->header.transform) {
         free(text);
         return NULL;
@@ -1048,24 +1034,31 @@ void rgfx_sprite_set_uniform_int(rgfx_sprite_t* sprite, const char* name, int va
 
 // Generic transform functions
 void rgfx_set_parent(void* child, void* parent) {
-    rtransform_set_generic_parent(child, parent);
+    if (!child) return;
+    rgfx_header_t* header = (rgfx_header_t*)child;
+    rtransform_t* child_transform = header->transform;
+    rtransform_t* parent_transform = NULL;
+    
+    if (parent) {
+        rgfx_header_t* parent_header = (rgfx_header_t*)parent;
+        parent_transform = parent_header->transform;
+    }
+    
+    if (child_transform) {
+        rtransform_set_parent(child_transform, parent_transform);
+    }
 }
 
 rtransform_t* rgfx_get_transform(void* object) {
-    return rtransform_get(object);
+    if (!object) return NULL;
+    rgfx_header_t* header = (rgfx_header_t*)object;
+    return header->transform;
 }
 
 #include <string.h>
 
 rtransform_t* rtransform_get(void* object) {
     if (!object) return NULL;
-    
-    // First verify we have a valid header by checking the type
     rgfx_header_t* header = (rgfx_header_t*)object;
-    if (header->type <= RTYPE_NONE || header->type > RTYPE_TEXT) {
-        return NULL;  // Invalid type
-    }
-    
-    // Now it's safe to access the transform
     return header->transform;
 }
