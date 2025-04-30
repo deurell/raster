@@ -28,48 +28,47 @@ void game_update(float dt)
 
     // Calculate 3D orbit position using spherical coordinates
     float orbit_radius = 1.5f;
-    float theta = G.time * G.orbit_speed;  // Horizontal orbit angle
-    float phi = 0.5f * sinf(G.time * 0.5f);  // Vertical oscillation angle
-    
+    float theta        = G.time * G.orbit_speed;     // Horizontal orbit angle
+    float phi          = 0.5f * sinf(G.time * 0.5f); // Vertical oscillation angle
+
     vec3 local_pos = {
-        orbit_radius * cosf(theta) * cosf(phi),  // x
-        orbit_radius * sinf(phi),                // y
-        orbit_radius * sinf(theta) * cosf(phi)   // z
+        orbit_radius * cosf(theta) * cosf(phi), // x
+        orbit_radius * sinf(phi),               // y
+        orbit_radius * sinf(theta) * cosf(phi)  // z
     };
     rgfx_sprite_set_position(G.sprite_two, local_pos);
-    
+
     // Calculate rotation to face the center point (0,0,0)
-    // We do this by creating a rotation that aligns our forward vector (-Z) with 
+    // We do this by creating a rotation that aligns our forward vector (-Z) with
     // the direction from our position to the center
-    
+
     rtransform_t* transform = rgfx_get_transform(G.sprite_two);
-    
+
     // Calculate direction from position to center (target - position)
-    vec3 direction = {
-        -local_pos[0],
-        -local_pos[1], 
-        -local_pos[2]
-    };
-    vec3_norm(direction, direction);  // Normalize to get direction vector
-    
+    vec3 direction = { -local_pos[0], -local_pos[1], -local_pos[2] };
+    vec3_norm(direction, direction); // Normalize to get direction vector
+
     // Our default forward vector (what we want to rotate to align with direction)
-    vec3 forward = {0.0f, 0.0f, -1.0f};
-    
+    vec3 forward = { 0.0f, 0.0f, -1.0f };
+
     // Calculate the rotation axis by cross product of forward and direction
     vec3 rotation_axis;
     vec3_mul_cross(rotation_axis, forward, direction);
-    
+
     // If vectors are parallel or anti-parallel, use up vector as rotation axis
-    if (vec3_len(rotation_axis) < 1e-6) {
-        rotation_axis[1] = 1.0f;  // Use Y-up as fallback rotation axis
-    } else {
+    if (vec3_len(rotation_axis) < 1e-6)
+    {
+        rotation_axis[1] = 1.0f; // Use Y-up as fallback rotation axis
+    }
+    else
+    {
         vec3_norm(rotation_axis, rotation_axis);
     }
-    
+
     // Calculate rotation angle using dot product
-    float dot = vec3_mul_inner(forward, direction);
+    float dot   = vec3_mul_inner(forward, direction);
     float angle = acosf(dot);
-    
+
     // Create and apply the rotation
     quat rotation;
     quat_rotate(rotation, angle, rotation_axis);
@@ -123,21 +122,24 @@ void game_draw(void)
 
     // 2. Draw transparent objects back-to-front with depth writes disabled
     glDepthMask(GL_FALSE);
-    
+
     // Sort sprites by Z distance from camera (furthest first)
     vec3 pos1, pos2;
     rgfx_sprite_get_world_position(G.sprite_one, pos1);
     rgfx_sprite_get_world_position(G.sprite_two, pos2);
-    
+
     // Simple back-to-front rendering based on Z position
-    if (pos1[2] < pos2[2]) {
+    if (pos1[2] < pos2[2])
+    {
         rgfx_sprite_draw(G.sprite_one);
         rgfx_sprite_draw(G.sprite_two);
-    } else {
+    }
+    else
+    {
         rgfx_sprite_draw(G.sprite_two);
         rgfx_sprite_draw(G.sprite_one);
     }
-    
+
     // Restore depth mask
     glDepthMask(GL_TRUE);
 }
@@ -201,14 +203,14 @@ int main(void)
     G.sprite_one = rgfx_sprite_create(&sprite_desc);
 
     rgfx_sprite_desc_t sprite_two_desc = { .position             = { 1.5f, 0.0f, 0.0f },
-                                             .size                 = { 0.5f, 0.5f }, // Make the child sprite smaller
-                                             .color                = { 1.0f, 1.0f, 1.0f },
-                                             .vertex_shader_path   = "assets/shaders/basic_texture.vert",
-                                             .fragment_shader_path = "assets/shaders/basic_texture.frag",
-                                             .texture_path         = "assets/textures/googly-e.png" };
+                                           .size                 = { 0.5f, 0.5f }, // Make the child sprite smaller
+                                           .color                = { 1.0f, 1.0f, 1.0f },
+                                           .vertex_shader_path   = "assets/shaders/basic_texture.vert",
+                                           .fragment_shader_path = "assets/shaders/basic_texture.frag",
+                                           .texture_path         = "assets/textures/googly-e.png" };
 
     G.sprite_two = rgfx_sprite_create(&sprite_two_desc);
-    
+
     rgfx_set_parent(G.sprite_two, G.sprite_one);
 
     rgfx_sprite_desc_t rasterbar_desc = {
