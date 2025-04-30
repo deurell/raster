@@ -108,6 +108,7 @@ extern "C"
     void rgfx_sprite_set_size(rgfx_sprite_t* sprite, vec2 size);
     void rgfx_sprite_set_color(rgfx_sprite_t* sprite, color color);
     void rgfx_sprite_set_texture(rgfx_sprite_t* sprite, unsigned int textureID);
+    void rgfx_sprite_set_parent(rgfx_sprite_t* sprite, rgfx_sprite_t* parent);
 
     // Text properties
     void         rgfx_text_set_position(rgfx_text_t* text, vec3 position);
@@ -138,17 +139,16 @@ extern "C"
     void rgfx_sprite_set_uniform_vec3(rgfx_sprite_t* sprite, const char* name, vec3 value);
     void rgfx_sprite_set_uniform_vec4(rgfx_sprite_t* sprite, const char* name, vec4 value);
 
-    // Transform related sprite functions
-    void rgfx_sprite_set_parent(rgfx_sprite_t* sprite, rgfx_sprite_t* parent);
+    // Transform related functions - using generic parent system
+    void rgfx_set_parent(void* child, void* parent);
+    rtransform_t* rgfx_get_transform(void* object);
+    
+    // Keep specific rotation/position setters for type safety and convenience
     void rgfx_sprite_set_rotation(rgfx_sprite_t* sprite, float rotation);
     void rgfx_sprite_get_world_position(rgfx_sprite_t* sprite, vec3 out_position);
-    rtransform_t* rgfx_sprite_get_transform(rgfx_sprite_t* sprite);
 
-    // Transform related text functions
-    void rgfx_text_set_parent(rgfx_text_t* text, rgfx_sprite_t* parent);
     void rgfx_text_set_rotation(rgfx_text_t* text, float rotation);
     void rgfx_text_get_world_position(rgfx_text_t* text, vec3 out_position);
-    rtransform_t* rgfx_text_get_transform(rgfx_text_t* text);
 
     // Camera type forward declaration
     typedef struct rgfx_camera rgfx_camera_t;

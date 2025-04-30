@@ -1,4 +1,5 @@
 #include "raster/raster_transform.h"
+#include "raster/raster_gfx.h"
 #include <stdlib.h>
 
 rtransform_t* rtransform_create(void* owner) {
@@ -107,5 +108,14 @@ void rtransform_update(rtransform_t* transform) {
         mat4x4_mul(transform->world, transform->parent->world, transform->local);
     } else {
         mat4x4_dup(transform->world, transform->local);
+    }
+}
+
+void rtransform_set_generic_parent(void* child, void* parent) {
+    rtransform_t* child_transform = rtransform_get(child);
+    rtransform_t* parent_transform = parent ? rtransform_get(parent) : NULL;
+    
+    if (child_transform) {
+        rtransform_set_parent(child_transform, parent_transform);
     }
 }
