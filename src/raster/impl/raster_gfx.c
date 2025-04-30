@@ -27,14 +27,9 @@ typedef struct
 static text_lines_t split_text_into_lines(const char* text);
 static void         free_text_lines(text_lines_t* lines);
 
-// Common header for all renderable objects
-typedef struct {
-    rtransform_t* transform;
-} rgfx_header_t;
-
 struct rgfx_sprite
 {
-    rgfx_header_t header;  // Must be first member
+    rtransform_t* transform;  // Direct transform member
     unsigned int   VAO;
     unsigned int   VBO;
     unsigned int   EBO;
@@ -60,7 +55,7 @@ struct rgfx_camera
 
 struct rgfx_text
 {
-    rgfx_header_t header;  // Must be first member
+    rtransform_t* transform;  // Direct transform member
     unsigned int   VAO;
     unsigned int   VBO;
     unsigned int   EBO;
@@ -271,26 +266,14 @@ unsigned int rgfx_create_shader_program(const char* vertexSource, const char* fr
 // Descriptor-based sprite creation
 rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
 {
-    if (!desc)
-        return NULL;
-
-    // Require vertex and fragment shader paths
-    if (!desc->vertex_shader_path || !desc->fragment_shader_path)
-    {
-        rlog_error("Vertex and fragment shader paths are required");
-        return NULL;
-    }
-
+    if (!desc) return NULL;
+    
     rgfx_sprite_t* sprite = (rgfx_sprite_t*)malloc(sizeof(rgfx_sprite_t));
-    if (!sprite)
-    {
-        return NULL;
-    }
+    if (!sprite) return NULL;
 
     // Create transform component
-    sprite->header.transform = rtransform_create();
-    if (!sprite->header.transform)
-    {
+    sprite->transform = rtransform_create();
+    if (!sprite->transform) {
         free(sprite);
         return NULL;
     }
@@ -298,11 +281,11 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     // Initialize transform with descriptor position
     vec3 pos;
     memcpy(pos, desc->position, sizeof(vec3));
-    rtransform_set_position(sprite->header.transform, pos);
+    rtransform_set_position(sprite->transform, pos);
     
     // Set initial scale based on size
     vec3 scale = {desc->size[0], desc->size[1], 1.0f};
-    rtransform_set_scale(sprite->header.transform, scale);
+    rtransform_set_scale(sprite->transform, scale);
     
     // Store size and color
     vec2_dup(sprite->size, desc->size);
@@ -384,17 +367,16 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     bool  useTextureCoords = false;
 
     // Check if the shader has texture coordinate attribute
-    if (glGetAttribLocation(sprite->shaderProgram, "aTexCoord") != -1)
-    {
+    if (glGetAttribLocation(sprite->shaderProgram, "aTexCoord") != -1) {
         useTextureCoords = true;
 
         // Vertices with position and texture coordinates
         float verts[] = {
             // positions    // texture coords
-            -0.5f, -0.5f, 0.0f, 0.0f, // bottom left
-            0.5f,  -0.5f, 1.0f, 0.0f, // bottom right
-            0.5f,  0.5f,  1.0f, 1.0f, // top right
-            -0.5f, 0.5f,  0.0f, 1.0f  // top left
+            -0.5f, -0.5f,  0.0f, 0.0f, // bottom left
+            0.5f,  -0.5f,  1.0f, 0.0f, // bottom right
+            0.5f,  0.5f,   1.0f, 1.0f, // top right
+            -0.5f, 0.5f,   0.0f, 1.0f  // top left
         };
         memcpy(vertices, verts, sizeof(verts));
     }
@@ -480,10 +462,10 @@ void rgfx_sprite_draw(rgfx_sprite_t* sprite)
     glUseProgram(sprite->shaderProgram);
 
     // Update transform
-    rtransform_update(sprite->header.transform);
+    rtransform_update(sprite->transform);
 
     // Set model matrix from transform's world matrix
-    glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uModel"), 1, GL_FALSE, (float*)sprite->header.transform->world);
+    glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uModel"), 1, GL_FALSE, (float*)sprite->transform->world);
 
     // Set size and color
     glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uSize"), sprite->size[0], sprite->size[1]);
@@ -556,8 +538,8 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc) {
     text->line_spacing = desc->line_spacing > 0.0f ? desc->line_spacing : 1.2f;
     
     // Create transform component
-    text->header.transform = rtransform_create();
-    if (!text->header.transform) {
+    text->transform = rtransform_create();
+    if (!text->transform) {
         free(text);
         return NULL;
     }
@@ -565,7 +547,7 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc) {
     // Initialize transform with descriptor position
     vec3 pos;
     vec3_dup(pos, desc->position);
-    rtransform_set_position(text->header.transform, pos);
+    rtransform_set_position(text->transform, pos);
 
     // Initialize text properties
     text->text_color = desc->text_color;
@@ -579,7 +561,7 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc) {
     // Load font file
     FILE* fontFile = fopen(desc->font_path, "rb");
     if (!fontFile) {
-        free(text->header.transform);
+        free(text->transform);
         free(text);
         return NULL;
     }
@@ -591,7 +573,7 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc) {
     text->font_buffer = (unsigned char*)malloc(fontFileSize);
     if (!text->font_buffer) {
         fclose(fontFile);
-        free(text->header.transform);
+        free(text->transform);
         free(text);
         return NULL;
     }
@@ -602,7 +584,7 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc) {
     // Initialize font
     if (!stbtt_InitFont(&text->font_info, text->font_buffer, 0)) {
         free(text->font_buffer);
-        free(text->header.transform);
+        free(text->transform);
         free(text);
         return NULL;
     }
@@ -629,7 +611,7 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc) {
         if (vertexSource) free(vertexSource);
         if (fragmentSource) free(fragmentSource);
         free(text->font_buffer);
-        free(text->header.transform);
+        free(text->transform);
         free(text);
         return NULL;
     }
@@ -640,7 +622,7 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc) {
 
     if (!text->shaderProgram) {
         free(text->font_buffer);
-        free(text->header.transform);
+        free(text->transform);
         free(text);
         return NULL;
     }
@@ -673,7 +655,7 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc) {
         glDeleteBuffers(1, &text->EBO);
         glDeleteProgram(text->shaderProgram);
         free(text->font_buffer);
-        free(text->header.transform);
+        free(text->transform);
         free(text);
         return NULL;
     }
@@ -687,10 +669,10 @@ void rgfx_text_draw(rgfx_text_t* text) {
     glUseProgram(text->shaderProgram);
 
     // Update transform
-    rtransform_update(text->header.transform);
+    rtransform_update(text->transform);
 
     // Set model matrix from transform's world matrix
-    glUniformMatrix4fv(glGetUniformLocation(text->shaderProgram, "uModel"), 1, GL_FALSE, (float*)text->header.transform->world);
+    glUniformMatrix4fv(glGetUniformLocation(text->shaderProgram, "uModel"), 1, GL_FALSE, (float*)text->transform->world);
 
     // Set color uniform
     glUniform3f(glGetUniformLocation(text->shaderProgram, "uColor"),
@@ -724,46 +706,46 @@ void rgfx_text_draw(rgfx_text_t* text) {
 
 // Update position setters to use transform
 void rgfx_sprite_set_position(rgfx_sprite_t* sprite, vec3 position) {
-    if (sprite && sprite->header.transform) {
+    if (sprite && sprite->transform) {
         vec3 pos;
         memcpy(pos, position, sizeof(vec3));
-        rtransform_set_position(sprite->header.transform, pos);
+        rtransform_set_position(sprite->transform, pos);
     }
 }
 
 void rgfx_text_set_position(rgfx_text_t* text, vec3 position) {
-    if (text && text->header.transform) {
+    if (text && text->transform) {
         vec3 pos;
         memcpy(pos, position, sizeof(vec3));
-        rtransform_set_position(text->header.transform, pos);
+        rtransform_set_position(text->transform, pos);
     }
 }
 
 // Add rotation setters
 void rgfx_sprite_set_rotation(rgfx_sprite_t* sprite, float rotation) {
-    if (sprite && sprite->header.transform) {
-        rtransform_set_rotation(sprite->header.transform, rotation);
+    if (sprite && sprite->transform) {
+        rtransform_set_rotation(sprite->transform, rotation);
     }
 }
 
 void rgfx_text_set_rotation(rgfx_text_t* text, float rotation) {
-    if (text && text->header.transform) {
-        rtransform_set_rotation(text->header.transform, rotation);
+    if (text && text->transform) {
+        rtransform_set_rotation(text->transform, rotation);
     }
 }
 
 // Get world position for both sprite and text
 void rgfx_sprite_get_world_position(rgfx_sprite_t* sprite, vec3 out_position) {
-    if (sprite && sprite->header.transform) {
-        rtransform_get_world_position(sprite->header.transform, out_position);
+    if (sprite && sprite->transform) {
+        rtransform_get_world_position(sprite->transform, out_position);
     } else if (out_position) {
         out_position[0] = out_position[1] = out_position[2] = 0.0f;
     }
 }
 
 void rgfx_text_get_world_position(rgfx_text_t* text, vec3 out_position) {
-    if (text && text->header.transform) {
-        rtransform_get_world_position(text->header.transform, out_position);
+    if (text && text->transform) {
+        rtransform_get_world_position(text->transform, out_position);
     } else if (out_position) {
         out_position[0] = out_position[1] = out_position[2] = 0.0f;
     }
@@ -771,23 +753,23 @@ void rgfx_text_get_world_position(rgfx_text_t* text, vec3 out_position) {
 
 // Transform getters
 rtransform_t* rgfx_sprite_get_transform(rgfx_sprite_t* sprite) {
-    return sprite ? sprite->header.transform : NULL;
+    return sprite ? sprite->transform : NULL;
 }
 
 rtransform_t* rgfx_text_get_transform(rgfx_text_t* text) {
-    return text ? text->header.transform : NULL;
+    return text ? text->transform : NULL;
 }
 
 // Parent-child relationship functions
 void rgfx_sprite_set_parent(rgfx_sprite_t* sprite, rgfx_sprite_t* parent) {
-    if (sprite && sprite->header.transform) {
-        rtransform_set_parent(sprite->header.transform, parent ? parent->header.transform : NULL);
+    if (sprite && sprite->transform) {
+        rtransform_set_parent(sprite->transform, parent ? parent->transform : NULL);
     }
 }
 
 void rgfx_text_set_parent(rgfx_text_t* text, rgfx_sprite_t* parent) {
-    if (text && text->header.transform) {
-        rtransform_set_parent(text->header.transform, parent ? parent->header.transform : NULL);
+    if (text && text->transform) {
+        rtransform_set_parent(text->transform, parent ? parent->transform : NULL);
     }
 }
 
@@ -981,8 +963,8 @@ void rgfx_text_destroy(rgfx_text_t* text) {
     if (text->textureID) {
         glDeleteTextures(1, &text->textureID);
     }
-    if (text->header.transform) {
-        free(text->header.transform);
+    if (text->transform) {
+        rtransform_destroy(text->transform);
     }
 
     glDeleteVertexArrays(1, &text->VAO);
@@ -1035,14 +1017,9 @@ void rgfx_sprite_set_uniform_int(rgfx_sprite_t* sprite, const char* name, int va
 // Generic transform functions
 void rgfx_set_parent(void* child, void* parent) {
     if (!child) return;
-    rgfx_header_t* header = (rgfx_header_t*)child;
-    rtransform_t* child_transform = header->transform;
-    rtransform_t* parent_transform = NULL;
     
-    if (parent) {
-        rgfx_header_t* parent_header = (rgfx_header_t*)parent;
-        parent_transform = parent_header->transform;
-    }
+    rtransform_t* child_transform = rgfx_get_transform(child);
+    rtransform_t* parent_transform = parent ? rgfx_get_transform(parent) : NULL;
     
     if (child_transform) {
         rtransform_set_parent(child_transform, parent_transform);
@@ -1051,14 +1028,22 @@ void rgfx_set_parent(void* child, void* parent) {
 
 rtransform_t* rgfx_get_transform(void* object) {
     if (!object) return NULL;
-    rgfx_header_t* header = (rgfx_header_t*)object;
-    return header->transform;
+    // Check if it's a sprite or text object based on size
+    if (sizeof(rgfx_sprite_t) == sizeof(struct rgfx_sprite)) {
+        return ((rgfx_sprite_t*)object)->transform;
+    } else {
+        return ((rgfx_text_t*)object)->transform;
+    }
 }
 
 #include <string.h>
 
 rtransform_t* rtransform_get(void* object) {
     if (!object) return NULL;
-    rgfx_header_t* header = (rgfx_header_t*)object;
-    return header->transform;
+    // Check if it's a sprite or text object based on size
+    if (sizeof(rgfx_sprite_t) == sizeof(struct rgfx_sprite)) {
+        return ((rgfx_sprite_t*)object)->transform;
+    } else {
+        return ((rgfx_text_t*)object)->transform;
+    }
 }
