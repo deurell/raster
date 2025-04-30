@@ -115,20 +115,13 @@ void game_draw(void)
     color bg_color = { 0.0f, 0.53f, 0.94f };
     rgfx_clear_color(bg_color);
 
-    // 1. Draw opaque objects first with depth writes enabled
-    glDepthMask(GL_TRUE);
     rgfx_text_draw(G.text);
     rgfx_sprite_draw(G.sprite_rasterbar);
 
-    // 2. Draw transparent objects back-to-front with depth writes disabled
-    glDepthMask(GL_FALSE);
-
-    // Sort sprites by Z distance from camera (furthest first)
     vec3 pos1, pos2;
     rgfx_sprite_get_world_position(G.sprite_one, pos1);
     rgfx_sprite_get_world_position(G.sprite_two, pos2);
 
-    // Simple back-to-front rendering based on Z position
     if (pos1[2] < pos2[2])
     {
         rgfx_sprite_draw(G.sprite_one);
@@ -139,9 +132,6 @@ void game_draw(void)
         rgfx_sprite_draw(G.sprite_two);
         rgfx_sprite_draw(G.sprite_one);
     }
-
-    // Restore depth mask
-    glDepthMask(GL_TRUE);
 }
 
 void game_cleanup(void)
