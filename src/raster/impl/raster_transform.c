@@ -57,6 +57,13 @@ void rtransform_set_rotation_axis_angle(rtransform_t* transform, vec3 axis, floa
     }
 }
 
+void rtransform_set_rotation_quat(rtransform_t* transform, quat rotation) {
+    if (transform) {
+        memcpy(transform->rotation, rotation, sizeof(quat));
+        rtransform_update(transform);
+    }
+}
+
 void rtransform_get_world_position(rtransform_t* transform, vec3 out_position) {
     if (transform) {
         out_position[0] = transform->world[3][0];

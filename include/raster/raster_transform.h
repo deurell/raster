@@ -21,6 +21,7 @@ void rtransform_set_parent(rtransform_t* transform, rtransform_t* parent);
 void rtransform_set_position(rtransform_t* transform, vec3 position);
 void rtransform_set_scale(rtransform_t* transform, vec3 scale);
 void rtransform_set_rotation_axis_angle(rtransform_t* transform, vec3 axis, float angle);
+void rtransform_set_rotation_quat(rtransform_t* transform, quat rotation);
 void rtransform_get_world_position(rtransform_t* transform, vec3 out_position);
 void rtransform_update(rtransform_t* transform);
 
