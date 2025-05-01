@@ -16,14 +16,19 @@ void main()
     intensity *= 1.0 + uAmplitude * sin(TexCoord.x * uFrequency + uTime * 2.0);
     
     vec3 barColor = vec3(intensity);
+    vec4 finalColor;
     
     if (uUseTexture) {
         vec4 texColor = texture(uTexture, TexCoord);
         if (texColor.a < 0.01) {
             discard;
         }
-        FragColor = texColor * vec4(barColor * uColor, 1.0);
+        finalColor = texColor * vec4(barColor * uColor, 1.0);
     } else {
-        FragColor = vec4(barColor * uColor, 1.0);
+        finalColor = vec4(barColor * uColor, 1.0);
     }
+
+    // Always write to depth buffer since rasterbar is the background
+    gl_FragDepth = gl_FragCoord.z;
+    FragColor = finalColor;
 }

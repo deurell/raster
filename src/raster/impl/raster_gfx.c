@@ -544,10 +544,13 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc) {
         return NULL;
     }
 
-    // Initialize transform with descriptor position
+    // Initialize transform with descriptor position and proper scale for font size
     vec3 pos;
     vec3_dup(pos, desc->position);
     rtransform_set_position(text->transform, pos);
+
+    vec3 scale = { desc->font_size * 0.04f, desc->font_size * -0.04f, 1.0f };
+    rtransform_set_scale(text->transform, scale);
 
     // Initialize text properties
     text->text_color = desc->text_color;

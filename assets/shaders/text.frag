@@ -7,10 +7,10 @@ uniform vec3 uColor;
 void main() {
     float textAlpha = texture(uTexture, TexCoord).r;
     if (textAlpha < 0.01) {
-        discard;
-    } else if (textAlpha > 0.1) {
-        textAlpha = smoothstep(0.1, 0.5, textAlpha);
+        discard; // This prevents writing to both color and depth buffer
     }
     
-    FragColor = vec4(uColor, textAlpha);
+    // Opaque text for "RASTER"
+    FragColor = vec4(uColor, 1.0);
+    gl_FragDepth = gl_FragCoord.z; // Write to depth buffer for opaque pixels
 }

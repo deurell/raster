@@ -115,23 +115,15 @@ void game_draw(void)
     color bg_color = { 0.0f, 0.53f, 0.94f };
     rgfx_clear_color(bg_color);
 
-    rgfx_text_draw(G.text);
+    // Draw rasterbar effect first (background)
     rgfx_sprite_draw(G.sprite_rasterbar);
-
-    vec3 pos1, pos2;
-    rgfx_sprite_get_world_position(G.sprite_one, pos1);
-    rgfx_sprite_get_world_position(G.sprite_two, pos2);
-
-    if (pos1[2] < pos2[2])
-    {
-        rgfx_sprite_draw(G.sprite_one);
-        rgfx_sprite_draw(G.sprite_two);
-    }
-    else
-    {
-        rgfx_sprite_draw(G.sprite_two);
-        rgfx_sprite_draw(G.sprite_one);
-    }
+    
+    // Draw main sprite and its child
+    rgfx_sprite_draw(G.sprite_one);
+    rgfx_sprite_draw(G.sprite_two);
+    
+    // Draw text on top
+    rgfx_text_draw(G.text);
 }
 
 void game_cleanup(void)
