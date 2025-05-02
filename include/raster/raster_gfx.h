@@ -10,6 +10,12 @@ extern "C"
 #include "raster_math.h"
 #include "raster_transform.h"
 
+    // Object type identification
+    typedef enum {
+        RGFX_OBJECT_TYPE_SPRITE,
+        RGFX_OBJECT_TYPE_TEXT
+    } rgfx_object_type_t;
+
     // Graphics context
     bool rgfx_init(void);
     void rgfx_shutdown(void);

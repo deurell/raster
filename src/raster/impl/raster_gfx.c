@@ -29,17 +29,18 @@ static void         free_text_lines(text_lines_t* lines);
 
 struct rgfx_sprite
 {
-    rtransform_t* transform;
-    unsigned int   VAO;
-    unsigned int   VBO;
-    unsigned int   EBO;
-    unsigned int   shaderProgram;
-    unsigned int   textureID;
-    bool          hasTexture;
-    vec2          size;
-    color         color;
-    rgfx_uniform_t uniforms[RGFX_MAX_UNIFORMS];
-    int           uniform_count;
+    rgfx_object_type_t type;      // Type identifier
+    rtransform_t*      transform;
+    unsigned int       VAO;
+    unsigned int       VBO;
+    unsigned int       EBO;
+    unsigned int       shaderProgram;
+    unsigned int       textureID;
+    bool              hasTexture;
+    vec2              size;
+    color             color;
+    rgfx_uniform_t    uniforms[RGFX_MAX_UNIFORMS];
+    int               uniform_count;
 };
 
 struct rgfx_camera
@@ -55,23 +56,24 @@ struct rgfx_camera
 
 struct rgfx_text
 {
-    rtransform_t* transform;  // Direct transform member
-    unsigned int   VAO;
-    unsigned int   VBO;
-    unsigned int   EBO;
-    unsigned int   shaderProgram;
-    unsigned int   textureID;
-    stbtt_fontinfo font_info;
-    unsigned char* font_buffer;
-    unsigned char* font_bitmap;
-    char          text[RGFX_MAX_TEXT_LENGTH];
-    float         font_size;
-    color         text_color;
-    int           bitmap_width;
-    int           bitmap_height;
-    float         line_spacing;
-    int           alignment;
-    unsigned int  index_count;
+    rgfx_object_type_t type;      // Type identifier
+    rtransform_t*      transform;
+    unsigned int       VAO;
+    unsigned int       VBO;
+    unsigned int       EBO;
+    unsigned int       shaderProgram;
+    unsigned int       textureID;
+    stbtt_fontinfo     font_info;
+    unsigned char*     font_buffer;
+    unsigned char*     font_bitmap;
+    char              text[RGFX_MAX_TEXT_LENGTH];
+    float             font_size;
+    color             text_color;
+    int               bitmap_width;
+    int               bitmap_height;
+    float             line_spacing;
+    int               alignment;
+    unsigned int      index_count;
 };
 
 static rgfx_camera_t* active_camera = NULL;
@@ -270,6 +272,8 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     
     rgfx_sprite_t* sprite = (rgfx_sprite_t*)malloc(sizeof(rgfx_sprite_t));
     if (!sprite) return NULL;
+
+    sprite->type = RGFX_OBJECT_TYPE_SPRITE;  // Set type
 
     // Create transform component
     sprite->transform = rtransform_create();
@@ -535,6 +539,7 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc) {
     rgfx_text_t* text = (rgfx_text_t*)calloc(1, sizeof(rgfx_text_t));
     if (!text) return NULL;
 
+    text->type = RGFX_OBJECT_TYPE_TEXT;  // Set type
     text->line_spacing = desc->line_spacing > 0.0f ? desc->line_spacing : 1.2f;
     
     // Create transform component
@@ -1033,22 +1038,24 @@ void rgfx_set_parent(void* child, void* parent) {
 
 rtransform_t* rgfx_get_transform(void* object) {
     if (!object) return NULL;
-    // Check if it's a sprite or text object based on size
-    if (sizeof(rgfx_sprite_t) == sizeof(struct rgfx_sprite)) {
-        return ((rgfx_sprite_t*)object)->transform;
-    } else {
-        return ((rgfx_text_t*)object)->transform;
+
+    // First try as sprite
+    rgfx_sprite_t* sprite = (rgfx_sprite_t*)object;
+    if (sprite->type == RGFX_OBJECT_TYPE_SPRITE) {
+        return sprite->transform;
     }
+
+    // Then try as text
+    rgfx_text_t* text = (rgfx_text_t*)object;
+    if (text->type == RGFX_OBJECT_TYPE_TEXT) {
+        return text->transform;
+    }
+
+    return NULL;
 }
 
 #include <string.h>
 
 rtransform_t* rtransform_get(void* object) {
-    if (!object) return NULL;
-    // Check if it's a sprite or text object based on size
-    if (sizeof(rgfx_sprite_t) == sizeof(struct rgfx_sprite)) {
-        return ((rgfx_sprite_t*)object)->transform;
-    } else {
-        return ((rgfx_text_t*)object)->transform;
-    }
+    return rgfx_get_transform(object); // Use the same safe implementation
 }
