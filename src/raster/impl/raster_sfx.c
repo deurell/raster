@@ -19,7 +19,7 @@ struct rsfx_sound
     struct rsfx_sound* next; // For cache linked list
 };
 
-static int                g_initialized = 0;
+static int                g_sfx_initialized = 0;
 static struct rsfx_sound* g_sound_cache = NULL;
 
 // Helper: find sound in cache by path
@@ -91,18 +91,18 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
 
 bool rsfx_init(void)
 {
-    g_initialized = 1;
+    g_sfx_initialized = 1;
     return true;
 }
 
 void rsfx_terminate(void)
 {
-    g_initialized = 0;
+    g_sfx_initialized = 0;
 }
 
 rsfx_sound_t rsfx_load_sound(const char* path)
 {
-    if (!g_initialized)
+    if (!g_sfx_initialized)
         return NULL;
     struct rsfx_sound* cached = find_cached_sound(path);
     if (cached)
