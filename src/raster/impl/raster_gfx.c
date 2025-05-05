@@ -1013,9 +1013,20 @@ bool rgfx_text_update_bitmap(rgfx_text_t* text) {
     }
     
     glBindTexture(GL_TEXTURE_2D, text->textureID);
+    
+#if defined(__EMSCRIPTEN__)
+    // For WebGL 2, we can use R8 format (single channel)
+    // which is equivalent to RED on desktop OpenGL
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, 
+                text->bitmap_width, text->bitmap_height,
+                0, GL_RED, GL_UNSIGNED_BYTE, text->font_bitmap);
+    rlog_info("Using R8 format for text texture in WebGL 2");
+#else
+    // For desktop OpenGL, use RED format
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RED,
                 text->bitmap_width, text->bitmap_height,
                 0, GL_RED, GL_UNSIGNED_BYTE, text->font_bitmap);
+#endif
 
     // Set texture parameters
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
