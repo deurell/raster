@@ -191,7 +191,7 @@ int main(void)
                                    .text         = "RASTER\nENGINE\nDEMO",
                                    .position     = { 0.0f, 0.0f, 0.0f },
                                    .text_color   = { 1.0f, 1.0f, 1.0f },
-                                   .line_spacing = 1.2f,
+                                   .line_spacing = 0.9f,
                                    .alignment    = RGFX_TEXT_ALIGN_CENTER };
 
     G.text = rgfx_text_create(&text_desc);
