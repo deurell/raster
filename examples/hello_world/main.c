@@ -155,7 +155,7 @@ int main(void)
 
     // Create sprites
     rgfx_sprite_desc_t sprite_desc = { .position             = { 0.0f, 0.0f, 0.0f },
-                                       .scale                 = { 1.0f, 1.0f, 1.0f },
+                                       .scale                = { 1.0f, 1.0f, 1.0f },
                                        .color                = { 1.0f, 1.0f, 1.0f },
                                        .vertex_shader_path   = "assets/shaders/basic_texture.vert",
                                        .fragment_shader_path = "assets/shaders/basic_texture.frag",
@@ -164,7 +164,7 @@ int main(void)
     G.sprite_one = rgfx_sprite_create(&sprite_desc);
 
     rgfx_sprite_desc_t sprite_two_desc = { .position             = { 1.5f, 0.0f, 0.0f },
-                                           .scale                 = { 0.5f, 0.5f, 0.5f },
+                                           .scale                = { 0.5f, 0.5f, 0.5f },
                                            .color                = { 1.0f, 1.0f, 1.0f },
                                            .vertex_shader_path   = "assets/shaders/basic_texture.vert",
                                            .fragment_shader_path = "assets/shaders/basic_texture.frag",
@@ -176,7 +176,7 @@ int main(void)
 
     rgfx_sprite_desc_t rasterbar_desc = {
         .position             = { 0.0f, 0.0f, 0.0f },
-        .scale                 = { 100.0f, 0.5f, 1.0f },
+        .scale                = { 100.0f, 0.5f, 1.0f },
         .color                = { 1.0f, 1.0f, 1.0f },
         .vertex_shader_path   = "assets/shaders/rasterbar.vert",
         .fragment_shader_path = "assets/shaders/rasterbar.frag",

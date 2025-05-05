@@ -288,7 +288,7 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     rtransform_set_position(sprite->transform, pos);
     
     // Set initial scale based on size
-    vec3 scale = {desc->scale[0], desc->scale[1], desc->scale[2]};
+    vec3 scale = { desc->scale[0], desc->scale[1], desc->scale[2] };
     rtransform_set_scale(sprite->transform, scale);
     
     // Store size and color
