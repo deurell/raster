@@ -679,8 +679,24 @@ void rgfx_text_draw(rgfx_text_t* text) {
     // Update transform
     rtransform_update(text->transform);
 
-    // Set model matrix from transform's world matrix
-    glUniformMatrix4fv(glGetUniformLocation(text->shaderProgram, "uModel"), 1, GL_FALSE, (float*)text->transform->world);
+    // Create a model matrix that scales based on bitmap dimensions
+    mat4x4 bitmap_scale;
+    mat4x4_identity(bitmap_scale);
+    
+    // Calculate aspect ratio to properly scale text width
+    float aspect_ratio = (float)text->bitmap_width / (float)text->bitmap_height;
+    
+    // Create a local scale matrix that maintains proper text proportions
+    bitmap_scale[0][0] = aspect_ratio; // Scale width by aspect ratio
+    
+    // Apply this scale matrix after the transform's world matrix
+    // This makes text keep its proper width-to-height ratio regardless of content
+    mat4x4 final_transform;
+    mat4x4_mul(final_transform, text->transform->world, bitmap_scale);
+    
+    // Set final model matrix
+    glUniformMatrix4fv(glGetUniformLocation(text->shaderProgram, "uModel"), 
+                       1, GL_FALSE, (float*)final_transform);
 
     // Set color uniform
     glUniform3f(glGetUniformLocation(text->shaderProgram, "uColor"),
@@ -877,71 +893,120 @@ unsigned int rgfx_load_texture(const char* filepath) {
     return textureID;
 }
 
-// Text bitmap update implementation
+// Text bitmap update implementation with multiline and alignment support
 bool rgfx_text_update_bitmap(rgfx_text_t* text) {
     if (!text || !text->text[0]) return false;
 
-    // Calculate bitmap dimensions
+    // Free existing bitmap if it exists
+    if (text->font_bitmap) {
+        free(text->font_bitmap);
+        text->font_bitmap = NULL;
+    }
+
+    // Split text into lines
+    text_lines_t lines = split_text_into_lines(text->text);
+    if (lines.count == 0) {
+        return false;
+    }
+
+    // Calculate scale for font size
     float scale = stbtt_ScaleForPixelHeight(&text->font_info, text->font_size);
-    int ascent, descent, lineGap;
-    stbtt_GetFontVMetrics(&text->font_info, &ascent, &descent, &lineGap);
-
+    
     // Calculate text dimensions
-    int text_width = 0;
-    int text_height = (int)((ascent - descent) * scale);
+    int ascent, descent, line_gap;
+    stbtt_GetFontVMetrics(&text->font_info, &ascent, &descent, &line_gap);
     
-    // Calculate total width
-    const char* p = text->text;
-    while (*p) {
-        int advance, lsb;
-        stbtt_GetCodepointHMetrics(&text->font_info, *p, &advance, &lsb);
-        text_width += (int)(advance * scale);
-        p++;
-    }
-
-    // Create bitmap with some padding
-    text->bitmap_width = text_width + 4;
-    text->bitmap_height = text_height + 4;
+    ascent = (int)(ascent * scale);
+    descent = (int)(descent * scale);
+    line_gap = (int)(line_gap * scale);
     
-    // Allocate bitmap memory
-    text->font_bitmap = (unsigned char*)realloc(text->font_bitmap, 
-                                              text->bitmap_width * text->bitmap_height);
-    if (!text->font_bitmap) return false;
-
-    // Clear bitmap
-    memset(text->font_bitmap, 0, text->bitmap_width * text->bitmap_height);
-
-    // Render text into bitmap
-    int x = 2;
-    int y = 2 + (int)(ascent * scale);
+    // Calculate line height including spacing
+    float line_spacing = text->line_spacing > 0 ? text->line_spacing : 1.2f;
+    int line_height = (int)((ascent - descent) * line_spacing);
     
-    p = text->text;
-    while (*p) {
-        int advance, lsb;
-        stbtt_GetCodepointHMetrics(&text->font_info, *p, &advance, &lsb);
-        
-        // Render glyph
-        int c_x1, c_y1, c_x2, c_y2;
-        stbtt_GetCodepointBitmapBox(&text->font_info, *p, scale, scale,
-                                   &c_x1, &c_y1, &c_x2, &c_y2);
-        
-        stbtt_MakeCodepointBitmap(&text->font_info, 
-                                 text->font_bitmap + x + (y + c_y1) * text->bitmap_width,
-                                 c_x2 - c_x1, c_y2 - c_y1,
-                                 text->bitmap_width,
-                                 scale, scale,
-                                 *p);
-        
-        x += (int)(advance * scale);
-        
-        // Handle kerning
-        if (*(p + 1)) {
-            int kern = stbtt_GetCodepointKernAdvance(&text->font_info, *p, *(p + 1));
-            x += (int)(kern * scale);
+    // First pass: calculate total width and height
+    int total_width = 0;
+    int line_widths[lines.count];
+    
+    for (int i = 0; i < lines.count; i++) {
+        int line_width = 0;
+        for (const char* p = lines.lines[i]; *p; p++) {
+            int advance, lsb;
+            stbtt_GetCodepointHMetrics(&text->font_info, *p, &advance, &lsb);
+            line_width += (int)(advance * scale);
+            
+            // Add kerning with next character
+            if (*(p+1)) {
+                line_width += (int)(stbtt_GetCodepointKernAdvance(&text->font_info, *p, *(p+1)) * scale);
+            }
         }
-        p++;
+        
+        line_widths[i] = line_width;
+        if (line_width > total_width) {
+            total_width = line_width;
+        }
     }
-
+    
+    // Calculate total height (with padding)
+    int total_height = lines.count * line_height + 10; // Add some padding
+    
+    // Create bitmap with dimensions
+    text->bitmap_width = total_width + 8;  // Add padding
+    text->bitmap_height = total_height;
+    
+    text->font_bitmap = (unsigned char*)calloc(text->bitmap_width * text->bitmap_height, 1);
+    if (!text->font_bitmap) {
+        rlog_error("Failed to allocate memory for text bitmap");
+        free_text_lines(&lines);
+        return false;
+    }
+    
+    // Second pass: render each line into the bitmap
+    int y = ascent + 4;  // Start position (baseline) with some padding
+    
+    for (int i = 0; i < lines.count; i++) {
+        // Calculate starting x position based on alignment
+        int x = 4;  // Default left alignment with padding
+        
+        if (text->alignment == RGFX_TEXT_ALIGN_CENTER) {
+            x = (text->bitmap_width - line_widths[i]) / 2;
+        } else if (text->alignment == RGFX_TEXT_ALIGN_RIGHT) {
+            x = text->bitmap_width - line_widths[i] - 4;  // Padding
+        }
+        
+        // Render each character in the line
+        for (const char* p = lines.lines[i]; *p; p++) {
+            // Get character bitmap
+            int c_x1, c_y1, c_x2, c_y2;
+            stbtt_GetCodepointBitmapBox(&text->font_info, *p, scale, scale, &c_x1, &c_y1, &c_x2, &c_y2);
+            
+            // Render character
+            stbtt_MakeCodepointBitmap(
+                &text->font_info,
+                text->font_bitmap + x + (y + c_y1) * text->bitmap_width,
+                c_x2 - c_x1, c_y2 - c_y1,
+                text->bitmap_width,
+                scale, scale,
+                *p);
+            
+            // Move to next character position
+            int advance, lsb;
+            stbtt_GetCodepointHMetrics(&text->font_info, *p, &advance, &lsb);
+            x += (int)(advance * scale);
+            
+            // Add kerning with next character
+            if (*(p+1)) {
+                x += (int)(stbtt_GetCodepointKernAdvance(&text->font_info, *p, *(p+1)) * scale);
+            }
+        }
+        
+        // Move to next line position
+        y += line_height;
+    }
+    
+    // Free the lines
+    free_text_lines(&lines);
+    
     // Generate or update texture
     if (!text->textureID) {
         glGenTextures(1, &text->textureID);
@@ -949,15 +1014,15 @@ bool rgfx_text_update_bitmap(rgfx_text_t* text) {
     
     glBindTexture(GL_TEXTURE_2D, text->textureID);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RED,
-                 text->bitmap_width, text->bitmap_height,
-                 0, GL_RED, GL_UNSIGNED_BYTE, text->font_bitmap);
+                text->bitmap_width, text->bitmap_height,
+                0, GL_RED, GL_UNSIGNED_BYTE, text->font_bitmap);
 
     // Set texture parameters
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
+    
     return true;
 }
 
@@ -1058,4 +1123,147 @@ rtransform_t* rgfx_get_transform(void* object) {
 
 rtransform_t* rtransform_get(void* object) {
     return rgfx_get_transform(object); // Use the same safe implementation
+}
+
+// Helper function to split text into lines
+static text_lines_t split_text_into_lines(const char* text) {
+    text_lines_t result = { NULL, 0 };
+    if (!text) return result;
+    
+    // Count number of lines (number of newlines + 1)
+    int line_count = 1;
+    for (const char* p = text; *p; p++) {
+        if (*p == '\n') {
+            line_count++;
+        }
+    }
+    
+    // Allocate memory for line pointers
+    result.lines = (char**)malloc(line_count * sizeof(char*));
+    if (!result.lines) return result;
+    
+    result.count = line_count;
+    
+    // Copy each line
+    const char* start = text;
+    int line_index = 0;
+    
+    for (const char* p = text; ; p++) {
+        if (*p == '\n' || *p == '\0') {
+            // Calculate line length
+            size_t len = p - start;
+            
+            // Allocate and copy the line
+            result.lines[line_index] = (char*)malloc(len + 1);
+            if (result.lines[line_index]) {
+                strncpy(result.lines[line_index], start, len);
+                result.lines[line_index][len] = '\0';
+            }
+            
+            line_index++;
+            start = p + 1;
+        }
+        
+        if (*p == '\0') break;
+    }
+    
+    return result;
+}
+
+// Helper function to free text_lines_t
+static void free_text_lines(text_lines_t* lines) {
+    if (!lines || !lines->lines) return;
+    
+    for (int i = 0; i < lines->count; i++) {
+        if (lines->lines[i]) {
+            free(lines->lines[i]);
+        }
+    }
+    
+    free(lines->lines);
+    lines->lines = NULL;
+    lines->count = 0;
+}
+
+// Text property setter/getter functions
+void rgfx_text_set_text(rgfx_text_t* text, const char* new_text) {
+    if (!text || !new_text) return;
+    
+    // Copy new text with length limit
+    strncpy(text->text, new_text, RGFX_MAX_TEXT_LENGTH - 1);
+    text->text[RGFX_MAX_TEXT_LENGTH - 1] = '\0';
+    
+    // Update the bitmap
+    rgfx_text_update_bitmap(text);
+}
+
+void rgfx_text_set_color(rgfx_text_t* text, color color) {
+    if (text) {
+        text->text_color = color;
+    }
+}
+
+void rgfx_text_set_font_size(rgfx_text_t* text, float size) {
+    if (!text || size <= 0) return;
+    
+    text->font_size = size;
+    
+    // Update the bitmap with the new font size
+    rgfx_text_update_bitmap(text);
+}
+
+void rgfx_text_set_alignment(rgfx_text_t* text, int alignment) {
+    if (!text) return;
+    
+    // Validate alignment value (0=left, 1=center, 2=right)
+    if (alignment < RGFX_TEXT_ALIGN_LEFT || alignment > RGFX_TEXT_ALIGN_RIGHT) {
+        alignment = RGFX_TEXT_ALIGN_LEFT; // Default to left if invalid
+    }
+    
+    if (text->alignment != alignment) {
+        text->alignment = alignment;
+        
+        // Update the bitmap with the new alignment
+        rgfx_text_update_bitmap(text);
+    }
+}
+
+void rgfx_text_set_line_spacing(rgfx_text_t* text, float spacing) {
+    if (!text) return;
+    
+    // Validate spacing (reasonable limits)
+    if (spacing < 0.5f) spacing = 0.5f;
+    if (spacing > 3.0f) spacing = 3.0f;
+    
+    if (text->line_spacing != spacing) {
+        text->line_spacing = spacing;
+        
+        // Update the bitmap with the new line spacing
+        rgfx_text_update_bitmap(text);
+    }
+}
+
+// Text property getters
+float rgfx_text_get_font_size(rgfx_text_t* text) {
+    return text ? text->font_size : 0.0f;
+}
+
+const char* rgfx_text_get_text(rgfx_text_t* text) {
+    return text ? text->text : NULL;
+}
+
+int rgfx_text_get_alignment(rgfx_text_t* text) {
+    return text ? text->alignment : RGFX_TEXT_ALIGN_LEFT;
+}
+
+float rgfx_text_get_line_spacing(rgfx_text_t* text) {
+    return text ? text->line_spacing : 1.2f;
+}
+
+color rgfx_text_get_color(rgfx_text_t* text) {
+    color result = {0.0f, 0.0f, 0.0f};
+    if (text) {
+        result = text->text_color;
+    }
+    return result;
 }

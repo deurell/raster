@@ -188,7 +188,7 @@ int main(void)
 
     rgfx_text_desc_t text_desc = { .font_path    = "assets/fonts/roboto.ttf",
                                    .font_size    = 64.0f,
-                                   .text         = "RASTER",
+                                   .text         = "RASTER\nENGINE\nDEMO",
                                    .position     = { 0.0f, 0.0f, 0.0f },
                                    .text_color   = { 1.0f, 1.0f, 1.0f },
                                    .line_spacing = 1.2f,
