@@ -176,7 +176,7 @@ int main(void)
 
     // Create sprites
     rgfx_sprite_desc_t sprite_desc = { .position             = { 0.0f, 0.0f, 0.0f },
-                                       .size                 = { 1.0f, 1.0f },
+                                       .size                 = { 1.0f, 1.0f, 1.0f },
                                        .color                = { 1.0f, 1.0f, 1.0f },
                                        .vertex_shader_path   = "assets/shaders/basic_texture.vert",
                                        .fragment_shader_path = "assets/shaders/basic_texture.frag",
@@ -185,7 +185,7 @@ int main(void)
     G.sprite_one = rgfx_sprite_create(&sprite_desc);
 
     rgfx_sprite_desc_t sprite_two_desc = { .position             = { 1.5f, 0.0f, 0.0f },
-                                           .size                 = { 0.5f, 0.5f }, // Make the child sprite smaller
+                                           .size                 = { 0.5f, 0.5f, 0.5f }, // Make the child sprite smaller
                                            .color                = { 1.0f, 1.0f, 1.0f },
                                            .vertex_shader_path   = "assets/shaders/basic_texture.vert",
                                            .fragment_shader_path = "assets/shaders/basic_texture.frag",
@@ -197,12 +197,12 @@ int main(void)
 
     rgfx_sprite_desc_t rasterbar_desc = {
         .position             = { 0.0f, 0.0f, 0.0f },
-        .size                 = { 100.0f, 0.5f },
+        .size                 = { 100.0f, 0.5f, 1.0f },
         .color                = { 1.0f, 1.0f, 1.0f },
         .vertex_shader_path   = "assets/shaders/rasterbar.vert",
         .fragment_shader_path = "assets/shaders/rasterbar.frag",
-        .uniforms             = { { .name = "uFrequency", .type = RGFX_UNIFORM_FLOAT, .float_val = 5.0f },
-                                  { .name = "uAmplitude", .type = RGFX_UNIFORM_FLOAT, .float_val = 0.5f } }
+        .uniforms             = { { .name = "uFrequency", .type = RGFX_UNIFORM_FLOAT, .uniform_float = 5.0f },
+                                  { .name = "uAmplitude", .type = RGFX_UNIFORM_FLOAT, .uniform_float = 0.5f } }
     };
 
     G.sprite_rasterbar = rgfx_sprite_create(&rasterbar_desc);

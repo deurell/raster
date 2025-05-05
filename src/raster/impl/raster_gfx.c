@@ -37,7 +37,7 @@ struct rgfx_sprite
     unsigned int       shaderProgram;
     unsigned int       textureID;
     bool              hasTexture;
-    vec2              size;
+    vec3              size;
     color             color;
     rgfx_uniform_t    uniforms[RGFX_MAX_UNIFORMS];
     int               uniform_count;
@@ -288,11 +288,11 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     rtransform_set_position(sprite->transform, pos);
     
     // Set initial scale based on size
-    vec3 scale = {desc->size[0], desc->size[1], 1.0f};
+    vec3 scale = {desc->size[0], desc->size[1], desc->size[2]};
     rtransform_set_scale(sprite->transform, scale);
     
     // Store size and color
-    vec2_dup(sprite->size, desc->size);
+    vec3_dup(sprite->size, desc->size);
     sprite->color = desc->color;
 
     // Initialize uniform system
@@ -489,19 +489,19 @@ void rgfx_sprite_draw(rgfx_sprite_t* sprite)
         if (location != -1) {
             switch (uniform->type) {
                 case RGFX_UNIFORM_FLOAT:
-                    glUniform1f(location, uniform->float_val);
+                    glUniform1f(location, uniform->uniform_float);
                     break;
                 case RGFX_UNIFORM_INT:
-                    glUniform1i(location, uniform->int_val);
+                    glUniform1i(location, uniform->uniform_int);
                     break;
                 case RGFX_UNIFORM_VEC2:
-                    glUniform2fv(location, 1, uniform->vec2_val);
+                    glUniform2fv(location, 1, uniform->uniform_vec2);
                     break;
                 case RGFX_UNIFORM_VEC3:
-                    glUniform3fv(location, 1, uniform->vec3_val);
+                    glUniform3fv(location, 1, uniform->uniform_vec3);
                     break;
                 case RGFX_UNIFORM_VEC4:
-                    glUniform4fv(location, 1, uniform->vec4_val);
+                    glUniform4fv(location, 1, uniform->uniform_vec4);
                     break;
             }
         }
@@ -993,7 +993,7 @@ void rgfx_sprite_set_uniform_float(rgfx_sprite_t* sprite, const char* name, floa
     for (int i = 0; i < sprite->uniform_count; i++) {
         if (strcmp(sprite->uniforms[i].name, name) == 0) {
             sprite->uniforms[i].type = RGFX_UNIFORM_FLOAT;
-            sprite->uniforms[i].float_val = value;
+            sprite->uniforms[i].uniform_float = value;
             return;
         }
     }
@@ -1001,7 +1001,7 @@ void rgfx_sprite_set_uniform_float(rgfx_sprite_t* sprite, const char* name, floa
     // Add new uniform
     sprite->uniforms[sprite->uniform_count].name = name;
     sprite->uniforms[sprite->uniform_count].type = RGFX_UNIFORM_FLOAT;
-    sprite->uniforms[sprite->uniform_count].float_val = value;
+    sprite->uniforms[sprite->uniform_count].uniform_float = value;
     sprite->uniform_count++;
 }
 
@@ -1012,7 +1012,7 @@ void rgfx_sprite_set_uniform_int(rgfx_sprite_t* sprite, const char* name, int va
     for (int i = 0; i < sprite->uniform_count; i++) {
         if (strcmp(sprite->uniforms[i].name, name) == 0) {
             sprite->uniforms[i].type = RGFX_UNIFORM_INT;
-            sprite->uniforms[i].int_val = value;
+            sprite->uniforms[i].uniform_int = value;
             return;
         }
     }
@@ -1020,7 +1020,7 @@ void rgfx_sprite_set_uniform_int(rgfx_sprite_t* sprite, const char* name, int va
     // Add new uniform
     sprite->uniforms[sprite->uniform_count].name = name;
     sprite->uniforms[sprite->uniform_count].type = RGFX_UNIFORM_INT;
-    sprite->uniforms[sprite->uniform_count].int_val = value;
+    sprite->uniforms[sprite->uniform_count].uniform_int = value;
     sprite->uniform_count++;
 }
 

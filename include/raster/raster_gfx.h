@@ -54,11 +54,11 @@ extern "C"
         rgfx_uniform_type_t type;
         union
         {
-            float float_val;
-            int   int_val;
-            vec2  vec2_val;
-            vec3  vec3_val;
-            vec4  vec4_val;
+            float uniform_float;
+            int   uniform_int;
+            vec2  uniform_vec2;
+            vec3  uniform_vec3;
+            vec4  uniform_vec4;
         };
     } rgfx_uniform_t;
 
@@ -68,7 +68,7 @@ extern "C"
     typedef struct
     {
         vec3        position;
-        vec2        size;
+        vec3        size;
         color       color;
         const char* vertex_shader_path;   // Optional: Path to vertex shader file (NULL for default)
         const char* fragment_shader_path; // Optional: Path to fragment shader file (NULL for default)
