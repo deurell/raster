@@ -22,54 +22,38 @@ void game_update(float dt)
 {
     G.time += dt;
 
-    // Update parent sprite position (bouncing motion)
     vec3 sprite_pos = { 0.0f, 0.8f * sinf(G.time * G.bounce_speed), 2.0f * sinf(G.time) };
     rgfx_sprite_set_position(G.sprite_one, sprite_pos);
 
-    // Calculate 3D orbit position using spherical coordinates
     float orbit_radius = 1.5f;
-    float theta        = G.time * G.orbit_speed;     // Horizontal orbit angle
-    float phi          = 0.5f * sinf(G.time * 0.5f); // Vertical oscillation angle
+    float theta        = G.time * G.orbit_speed;
+    float phi          = 0.5f * sinf(G.time * 0.5f);
 
-    vec3 local_pos = {
-        orbit_radius * cosf(theta) * cosf(phi), // x
-        orbit_radius * sinf(phi),               // y
-        orbit_radius * sinf(theta) * cosf(phi)  // z
-    };
+    vec3 local_pos = { orbit_radius * cosf(theta) * cosf(phi),
+                       orbit_radius * sinf(phi),
+                       orbit_radius * sinf(theta) * cosf(phi) };
     rgfx_sprite_set_position(G.sprite_two, local_pos);
-
-    // Calculate rotation to face the center point (0,0,0)
-    // We do this by creating a rotation that aligns our forward vector (-Z) with
-    // the direction from our position to the center
 
     rtransform_t* transform = rgfx_get_transform(G.sprite_two);
 
-    // Calculate direction from position to center (target - position)
     vec3 direction = { -local_pos[0], -local_pos[1], -local_pos[2] };
-    vec3_norm(direction, direction); // Normalize to get direction vector
-
-    // Our default forward vector (what we want to rotate to align with direction)
+    vec3_norm(direction, direction);
     vec3 forward = { 0.0f, 0.0f, -1.0f };
-
-    // Calculate the rotation axis by cross product of forward and direction
     vec3 rotation_axis;
     vec3_mul_cross(rotation_axis, forward, direction);
 
-    // If vectors are parallel or anti-parallel, use up vector as rotation axis
     if (vec3_len(rotation_axis) < 1e-6)
     {
-        rotation_axis[1] = 1.0f; // Use Y-up as fallback rotation axis
+        rotation_axis[1] = 1.0f;
     }
     else
     {
         vec3_norm(rotation_axis, rotation_axis);
     }
 
-    // Calculate rotation angle using dot product
     float dot   = vec3_mul_inner(forward, direction);
     float angle = acosf(dot);
 
-    // Create and apply the rotation
     quat rotation;
     quat_rotate(rotation, angle, rotation_axis);
     rtransform_set_rotation_quat(transform, rotation);
@@ -115,14 +99,9 @@ void game_draw(void)
     color bg_color = { 0.0f, 0.53f, 0.94f };
     rgfx_clear_color(bg_color);
 
-    // Draw rasterbar effect first (background)
     rgfx_sprite_draw(G.sprite_rasterbar);
-    
-    // Draw main sprite and its child
     rgfx_sprite_draw(G.sprite_one);
     rgfx_sprite_draw(G.sprite_two);
-    
-    // Draw text on top
     rgfx_text_draw(G.text);
 }
 
@@ -185,7 +164,7 @@ int main(void)
     G.sprite_one = rgfx_sprite_create(&sprite_desc);
 
     rgfx_sprite_desc_t sprite_two_desc = { .position             = { 1.5f, 0.0f, 0.0f },
-                                           .size                 = { 0.5f, 0.5f, 0.5f }, // Make the child sprite smaller
+                                           .size                 = { 0.5f, 0.5f, 0.5f },
                                            .color                = { 1.0f, 1.0f, 1.0f },
                                            .vertex_shader_path   = "assets/shaders/basic_texture.vert",
                                            .fragment_shader_path = "assets/shaders/basic_texture.frag",
@@ -207,7 +186,6 @@ int main(void)
 
     G.sprite_rasterbar = rgfx_sprite_create(&rasterbar_desc);
 
-    // Create text
     rgfx_text_desc_t text_desc = { .font_path    = "assets/fonts/roboto.ttf",
                                    .font_size    = 64.0f,
                                    .text         = "RASTER",
