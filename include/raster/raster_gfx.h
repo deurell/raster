@@ -68,7 +68,7 @@ extern "C"
     typedef struct
     {
         vec3        position;
-        vec3        size;
+        vec3        scale;
         color       color;
         const char* vertex_shader_path;   // Optional: Path to vertex shader file (NULL for default)
         const char* fragment_shader_path; // Optional: Path to fragment shader file (NULL for default)
