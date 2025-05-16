@@ -16,7 +16,7 @@ extern "C"
     /**
      * @brief Sound handle type
      */
-    typedef struct rsfx_sound* rsfx_sound_t;
+    typedef struct rsfx_sound rsfx_sound_t;
 
     /**
      * @brief Initialize the audio system
@@ -34,13 +34,13 @@ extern "C"
      * @param path Path to the sound file
      * @return Handle to the loaded sound, or NULL if loading failed
      */
-    rsfx_sound_t rsfx_load_sound(const char* path);
+    rsfx_sound_t* rsfx_load_sound(const char* path);
 
     /**
      * @brief Free a loaded sound
      * @param sound Handle to the sound to free
      */
-    void rsfx_free_sound(rsfx_sound_t sound);
+    void rsfx_free_sound(rsfx_sound_t* sound);
 
     /**
      * @brief Play a sound
@@ -48,20 +48,20 @@ extern "C"
      * @param loop Whether to loop the sound
      * @return true if the sound was played successfully, false otherwise
      */
-    bool rsfx_play_sound(rsfx_sound_t sound, bool loop);
+    bool rsfx_play_sound(rsfx_sound_t* sound, bool loop);
 
     /**
      * @brief Stop a playing sound
      * @param sound Handle to the sound to stop
      */
-    void rsfx_stop_sound(rsfx_sound_t sound);
+    void rsfx_stop_sound(rsfx_sound_t* sound);
 
     /**
      * @brief Set the volume of a sound
      * @param sound Handle to the sound
      * @param volume Volume (0.0 to 1.0)
      */
-    void rsfx_set_volume(rsfx_sound_t sound, float volume);
+    void rsfx_set_volume(rsfx_sound_t* sound, float volume);
 
 #ifdef __cplusplus
 }

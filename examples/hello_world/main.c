@@ -82,7 +82,7 @@ void game_update(float dt)
     if (rinput_key_down(RINPUT_KEY_0))
     {
         rlog_info("Key 0 pressed");
-        rsfx_sound_t sound = rsfx_load_sound("assets/sfx/bounce.wav");
+        rsfx_sound_t* sound = rsfx_load_sound("assets/sfx/bounce.wav");
         if (sound)
         {
             rsfx_play_sound(sound, false);
@@ -142,7 +142,7 @@ int main(void)
     }
     else
     {
-        rsfx_sound_t bgm = rsfx_load_sound("assets/sfx/background.mp3");
+        rsfx_sound_t* bgm = rsfx_load_sound("assets/sfx/background.mp3");
         if (bgm)
         {
             rsfx_play_sound(bgm, true); // Loop background music

@@ -20,7 +20,7 @@ struct rsfx_sound
 };
 
 static int                g_sfx_initialized = 0;
-static struct rsfx_sound* g_sound_cache = NULL;
+static struct rsfx_sound* g_sound_cache     = NULL;
 
 // Helper: find sound in cache by path
 static struct rsfx_sound* find_cached_sound(const char* path)
@@ -100,14 +100,14 @@ void rsfx_terminate(void)
     g_sfx_initialized = 0;
 }
 
-rsfx_sound_t rsfx_load_sound(const char* path)
+rsfx_sound_t* rsfx_load_sound(const char* path)
 {
     if (!g_sfx_initialized)
         return NULL;
     struct rsfx_sound* cached = find_cached_sound(path);
     if (cached)
         return cached;
-    rsfx_sound_t s = (rsfx_sound_t)calloc(1, sizeof(struct rsfx_sound));
+    rsfx_sound_t* s = (rsfx_sound_t*)calloc(1, sizeof(rsfx_sound_t));
     if (!s)
         return NULL;
     s->path = strdup(path);
@@ -135,7 +135,7 @@ rsfx_sound_t rsfx_load_sound(const char* path)
     return s;
 }
 
-void rsfx_free_sound(rsfx_sound_t sound)
+void rsfx_free_sound(rsfx_sound_t* sound)
 {
     if (!sound)
         return;
@@ -162,7 +162,7 @@ void rsfx_clear_cache(void)
     g_sound_cache = NULL;
 }
 
-bool rsfx_play_sound(rsfx_sound_t sound, bool loop)
+bool rsfx_play_sound(rsfx_sound_t* sound, bool loop)
 {
     if (!sound || !sound->loaded)
         return false;
@@ -172,14 +172,14 @@ bool rsfx_play_sound(rsfx_sound_t sound, bool loop)
     return ma_device_start(&sound->device) == MA_SUCCESS;
 }
 
-void rsfx_stop_sound(rsfx_sound_t sound)
+void rsfx_stop_sound(rsfx_sound_t* sound)
 {
     if (!sound || !sound->loaded)
         return;
     ma_device_stop(&sound->device);
 }
 
-void rsfx_set_volume(rsfx_sound_t sound, float volume)
+void rsfx_set_volume(rsfx_sound_t* sound, float volume)
 {
     if (!sound || !sound->loaded)
         return;
