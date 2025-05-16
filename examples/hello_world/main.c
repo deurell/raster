@@ -187,7 +187,7 @@ int main(void)
     G.sprite_rasterbar = rgfx_sprite_create(&rasterbar_desc);
 
     rgfx_text_desc_t text_desc = { .font_path    = "assets/fonts/roboto.ttf",
-                                   .font_size    = 64.0f,
+                                   .font_size    = 48.0f,
                                    .text         = "RASTER\nENGINE\nDEMO",
                                    .position     = { 0.0f, 0.0f, 0.0f },
                                    .text_color   = { 1.0f, 1.0f, 1.0f },

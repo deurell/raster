@@ -909,20 +909,25 @@ bool rgfx_text_update_bitmap(rgfx_text_t* text) {
         return false;
     }
 
-    // Calculate scale for font size
+    // Calculate scale for font size - use precise floating point for scale calculation
     float scale = stbtt_ScaleForPixelHeight(&text->font_info, text->font_size);
     
     // Calculate text dimensions
     int ascent, descent, line_gap;
     stbtt_GetFontVMetrics(&text->font_info, &ascent, &descent, &line_gap);
     
-    ascent = (int)(ascent * scale);
-    descent = (int)(descent * scale);
-    line_gap = (int)(line_gap * scale);
+    // Apply scaling with proper rounding to avoid fractional pixel issues
+    float scaled_ascent = ascent * scale;
+    float scaled_descent = descent * scale;
+    float scaled_line_gap = line_gap * scale;
+    
+    int rounded_ascent = (int)(scaled_ascent + 0.5f);  // Round properly
+    int rounded_descent = (int)(scaled_descent - 0.5f); // Round properly, negative value
+    int rounded_line_gap = (int)(scaled_line_gap + 0.5f); // Round properly
     
     // Calculate line height including spacing
     float line_spacing = text->line_spacing > 0 ? text->line_spacing : 1.2f;
-    int line_height = (int)((ascent - descent) * line_spacing);
+    int line_height = (int)((rounded_ascent - rounded_descent) * line_spacing + 0.5f); // Round properly
     
     // First pass: calculate total width and height
     int total_width = 0;
@@ -933,11 +938,18 @@ bool rgfx_text_update_bitmap(rgfx_text_t* text) {
         for (const char* p = lines.lines[i]; *p; p++) {
             int advance, lsb;
             stbtt_GetCodepointHMetrics(&text->font_info, *p, &advance, &lsb);
-            line_width += (int)(advance * scale);
+            
+            // Apply precise scaling and proper rounding
+            float scaled_advance = advance * scale;
+            int rounded_advance = (int)(scaled_advance + 0.5f); // Round properly
+            line_width += rounded_advance;
             
             // Add kerning with next character
             if (*(p+1)) {
-                line_width += (int)(stbtt_GetCodepointKernAdvance(&text->font_info, *p, *(p+1)) * scale);
+                int kern = stbtt_GetCodepointKernAdvance(&text->font_info, *p, *(p+1));
+                float scaled_kern = kern * scale;
+                int rounded_kern = (int)(scaled_kern + 0.5f); // Round properly
+                line_width += rounded_kern;
             }
         }
         
@@ -950,9 +962,13 @@ bool rgfx_text_update_bitmap(rgfx_text_t* text) {
     // Calculate total height (with padding)
     int total_height = lines.count * line_height + 10; // Add some padding
     
-    // Create bitmap with dimensions
+    // Create bitmap with dimensions - ensure even dimensions for better alignment
     text->bitmap_width = total_width + 8;  // Add padding
     text->bitmap_height = total_height;
+    
+    // Ensure width and height are even numbers (helps with texture alignment)
+    if (text->bitmap_width % 2 != 0) text->bitmap_width++;
+    if (text->bitmap_height % 2 != 0) text->bitmap_height++;
     
     text->font_bitmap = (unsigned char*)calloc(text->bitmap_width * text->bitmap_height, 1);
     if (!text->font_bitmap) {
@@ -962,7 +978,7 @@ bool rgfx_text_update_bitmap(rgfx_text_t* text) {
     }
     
     // Second pass: render each line into the bitmap
-    int y = ascent + 4;  // Start position (baseline) with some padding
+    int y = rounded_ascent + 4;  // Start position (baseline) with some padding
     
     for (int i = 0; i < lines.count; i++) {
         // Calculate starting x position based on alignment
@@ -976,11 +992,14 @@ bool rgfx_text_update_bitmap(rgfx_text_t* text) {
         
         // Render each character in the line
         for (const char* p = lines.lines[i]; *p; p++) {
-            // Get character bitmap
+            // Get character bitmap box with explicit rounding
             int c_x1, c_y1, c_x2, c_y2;
-            stbtt_GetCodepointBitmapBox(&text->font_info, *p, scale, scale, &c_x1, &c_y1, &c_x2, &c_y2);
+            stbtt_GetCodepointBitmapBoxSubpixel(
+                &text->font_info, *p, scale, scale, 
+                0.0f, 0.0f,  // No subpixel shift
+                &c_x1, &c_y1, &c_x2, &c_y2);
             
-            // Render character
+            // Render character with consistent scale
             stbtt_MakeCodepointBitmap(
                 &text->font_info,
                 text->font_bitmap + x + (y + c_y1) * text->bitmap_width,
@@ -989,14 +1008,15 @@ bool rgfx_text_update_bitmap(rgfx_text_t* text) {
                 scale, scale,
                 *p);
             
-            // Move to next character position
+            // Move to next character position with proper rounding
             int advance, lsb;
             stbtt_GetCodepointHMetrics(&text->font_info, *p, &advance, &lsb);
-            x += (int)(advance * scale);
+            x += (int)(advance * scale + 0.5f); // Round properly
             
             // Add kerning with next character
             if (*(p+1)) {
-                x += (int)(stbtt_GetCodepointKernAdvance(&text->font_info, *p, *(p+1)) * scale);
+                int kern = stbtt_GetCodepointKernAdvance(&text->font_info, *p, *(p+1));
+                x += (int)(kern * scale + 0.5f); // Round properly
             }
         }
         
