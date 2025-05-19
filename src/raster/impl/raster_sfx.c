@@ -19,7 +19,7 @@ struct rsfx_sound
     struct rsfx_sound* next; // For cache linked list
 };
 
-static int                g_sfx_initialized = 0;
+static int            g_sfx_initialized = 0;
 πstatic rsfx_sound_t* g_sound_cache     = NULL;
 
 // Helper: find sound in cache by path
