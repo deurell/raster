@@ -20,7 +20,7 @@ struct rsfx_sound
 };
 
 static int            g_sfx_initialized = 0;
-πstatic rsfx_sound_t* g_sound_cache     = NULL;
+static rsfx_sound_t* g_sound_cache     = NULL;
 
 // Helper: find sound in cache by path
 static rsfx_sound_t* find_cached_sound(const char* path)
