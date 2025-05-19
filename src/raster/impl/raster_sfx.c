@@ -20,12 +20,12 @@ struct rsfx_sound
 };
 
 static int                g_sfx_initialized = 0;
-static struct rsfx_sound* g_sound_cache     = NULL;
+πstatic rsfx_sound_t* g_sound_cache     = NULL;
 
 // Helper: find sound in cache by path
-static struct rsfx_sound* find_cached_sound(const char* path)
+static rsfx_sound_t* find_cached_sound(const char* path)
 {
-    struct rsfx_sound* s = g_sound_cache;
+    rsfx_sound_t* s = g_sound_cache;
     while (s)
     {
         if (s->path && strcmp(s->path, path) == 0)
@@ -36,16 +36,16 @@ static struct rsfx_sound* find_cached_sound(const char* path)
 }
 
 // Helper: add sound to cache
-static void cache_sound(struct rsfx_sound* sound)
+static void cache_sound(rsfx_sound_t* sound)
 {
     sound->next   = g_sound_cache;
     g_sound_cache = sound;
 }
 
 // Helper: remove sound from cache (used in clear)
-static void remove_sound_from_cache(struct rsfx_sound* sound)
+static void remove_sound_from_cache(rsfx_sound_t* sound)
 {
-    struct rsfx_sound** p = &g_sound_cache;
+    rsfx_sound_t** p = &g_sound_cache;
     while (*p)
     {
         if (*p == sound)
@@ -104,7 +104,7 @@ rsfx_sound_t* rsfx_load_sound(const char* path)
 {
     if (!g_sfx_initialized)
         return NULL;
-    struct rsfx_sound* cached = find_cached_sound(path);
+    rsfx_sound_t* cached = find_cached_sound(path);
     if (cached)
         return cached;
     rsfx_sound_t* s = (rsfx_sound_t*)calloc(1, sizeof(rsfx_sound_t));
@@ -152,10 +152,10 @@ void rsfx_free_sound(rsfx_sound_t* sound)
 
 void rsfx_clear_cache(void)
 {
-    struct rsfx_sound* s = g_sound_cache;
+    rsfx_sound_t* s = g_sound_cache;
     while (s)
     {
-        struct rsfx_sound* next = s->next;
+        rsfx_sound_t* next = s->next;
         rsfx_free_sound(s);
         s = next;
     }
