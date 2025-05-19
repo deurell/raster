@@ -59,11 +59,11 @@ static void remove_sound_from_cache(struct rsfx_sound* sound)
 
 static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
 {
-    ma_decoder*        pDecoder = (ma_decoder*)pDevice->pUserData;
-    struct rsfx_sound* s = (struct rsfx_sound*)(((char*)pDevice->pUserData) - offsetof(struct rsfx_sound, decoder));
+    ma_decoder* pDecoder = (ma_decoder*)pDevice->pUserData;
     if (!pDecoder)
         return;
-    ma_uint64 framesRead = 0;
+    rsfx_sound_t* s          = (rsfx_sound_t*)((char*)pDecoder - offsetof(struct rsfx_sound, decoder));
+    ma_uint64     framesRead = 0;
     ma_decoder_read_pcm_frames(pDecoder, pOutput, frameCount, &framesRead);
     if (framesRead < frameCount)
     {
