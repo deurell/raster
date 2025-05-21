@@ -19,7 +19,7 @@ struct rsfx_sound
     struct rsfx_sound* next; // For cache linked list
 };
 
-        static int           g_sfx_initialized = 0;
+static int           g_sfx_initialized = 0;
 static rsfx_sound_t* g_sound_cache     = NULL;
 
 // Helper: find sound in cache by path
@@ -62,30 +62,29 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
     ma_decoder* pDecoder = (ma_decoder*)pDevice->pUserData;
     if (!pDecoder)
         return;
-    rsfx_sound_t* s          = (rsfx_sound_t*)((char*)pDecoder - offsetof(struct rsfx_sound, decoder));
+
+    rsfx_sound_t* sound      = (rsfx_sound_t*)((char*)pDecoder - offsetof(rsfx_sound_t, decoder));
     ma_uint64     framesRead = 0;
+
     ma_decoder_read_pcm_frames(pDecoder, pOutput, frameCount, &framesRead);
+
+    if (framesRead < frameCount && sound && sound->loop)
+    {
+        ma_decoder_seek_to_pcm_frame(pDecoder, 0);
+        ma_uint64 moreRead = 0;
+        ma_decoder_read_pcm_frames(
+            pDecoder, (ma_int16*)pOutput + framesRead * pDecoder->outputChannels, frameCount - framesRead, &moreRead);
+        framesRead += moreRead;
+    }
+
     if (framesRead < frameCount)
     {
-        if (s && s->loop)
-        {
-            // Loop: seek to start and read remaining frames
-            ma_decoder_seek_to_pcm_frame(pDecoder, 0);
-            ma_uint64 moreRead = 0;
-            ma_decoder_read_pcm_frames(pDecoder,
-                                       (ma_int16*)pOutput + framesRead * pDecoder->outputChannels,
-                                       frameCount - framesRead,
-                                       &moreRead);
-            framesRead += moreRead;
-        }
-        if (framesRead < frameCount)
-        {
-            ma_silence_pcm_frames((ma_int16*)pOutput + framesRead * pDecoder->outputChannels,
-                                  frameCount - framesRead,
-                                  pDecoder->outputFormat,
-                                  pDecoder->outputChannels);
-        }
+        ma_silence_pcm_frames((ma_int16*)pOutput + framesRead * pDecoder->outputChannels,
+                              frameCount - framesRead,
+                              pDecoder->outputFormat,
+                              pDecoder->outputChannels);
     }
+
     (void)pInput;
 }
 
