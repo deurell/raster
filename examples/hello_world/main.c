@@ -36,26 +36,9 @@ void game_update(float dt)
 
     rtransform_t* transform = rgfx_get_transform(G.sprite_two);
 
-    vec3 direction = { -local_pos[0], -local_pos[1], -local_pos[2] };
-    vec3_norm(direction, direction);
-    vec3 forward = { 0.0f, 0.0f, -1.0f };
-    vec3 rotation_axis;
-    vec3_mul_cross(rotation_axis, forward, direction);
-
-    if (vec3_len(rotation_axis) < 1e-6)
-    {
-        rotation_axis[1] = 1.0f;
-    }
-    else
-    {
-        vec3_norm(rotation_axis, rotation_axis);
-    }
-
-    float dot   = vec3_mul_inner(forward, direction);
-    float angle = acosf(dot);
-
-    quat rotation;
-    quat_rotate(rotation, angle, rotation_axis);
+    float angle = G.time * G.orbit_speed;
+     quat  rotation;
+    quat_rotate(rotation, angle, (vec3){ 0.0f, 0.0f, 1.0f });
     rtransform_set_rotation_quat(transform, rotation);
 
     rgfx_sprite_set_uniform_float(G.sprite_rasterbar, "uFrequency", 0.8f + 0.5f * sinf(G.time));
@@ -187,7 +170,7 @@ int main(void)
     G.sprite_rasterbar = rgfx_sprite_create(&rasterbar_desc);
 
     rgfx_text_desc_t text_desc = { .font_path    = "assets/fonts/roboto.ttf",
-                                   .font_size    = 48.0f,
+                                   .font_size    = 64.0f,
                                    .text         = "RASTER\nENGINE\nDEMO",
                                    .position     = { 0.0f, 0.0f, 0.0f },
                                    .text_color   = { 1.0f, 1.0f, 1.0f },
