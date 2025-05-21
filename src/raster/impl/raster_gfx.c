@@ -150,23 +150,20 @@ char* rgfx_load_shader_source(const char* filepath)
         free(source);
         return new_source;
     }
-    else
+    // Log that we found an existing version directive
+    char        versionLine[64] = { 0 };
+    const char* versionStart    = strstr(source, "#version");
+    if (versionStart)
     {
-        // Log that we found an existing version directive
-        char        versionLine[64] = { 0 };
-        const char* versionStart    = strstr(source, "#version");
-        if (versionStart)
+        const char* lineEnd = strchr(versionStart, '\n');
+        if (lineEnd)
         {
-            const char* lineEnd = strchr(versionStart, '\n');
-            if (lineEnd)
+            size_t len = lineEnd - versionStart;
+            if (len < sizeof(versionLine) - 1)
             {
-                size_t len = lineEnd - versionStart;
-                if (len < sizeof(versionLine) - 1)
-                {
-                    strncpy(versionLine, versionStart, len);
-                    versionLine[len] = '\0';
-                    rlog_info("Found existing version directive in %s: %s", filepath, versionLine);
-                }
+                strncpy(versionLine, versionStart, len);
+                versionLine[len] = '\0';
+                rlog_info("Found existing version directive in %s: %s", filepath, versionLine);
             }
         }
     }
@@ -189,7 +186,7 @@ static unsigned int _compile_shader(unsigned int type, const char* source)
     if (!success)
     {
         glGetShaderInfoLog(shader, 512, NULL, infoLog);
-        printf("ERROR: Shader compilation failed\n%s\n", infoLog);
+        rlog_error("ERROR: Shader compilation failed\n%s\n", infoLog);
         return 0;
     }
     return shader;
