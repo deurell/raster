@@ -19,7 +19,7 @@ struct rsfx_sound
     struct rsfx_sound* next; // For cache linked list
 };
 
-static int            g_sfx_initialized = 0;
+        static int           g_sfx_initialized = 0;
 static rsfx_sound_t* g_sound_cache     = NULL;
 
 // Helper: find sound in cache by path
@@ -45,15 +45,15 @@ static void cache_sound(rsfx_sound_t* sound)
 // Helper: remove sound from cache (used in clear)
 static void remove_sound_from_cache(rsfx_sound_t* sound)
 {
-    rsfx_sound_t** p = &g_sound_cache;
-    while (*p)
+    rsfx_sound_t** current = &g_sound_cache;
+    while (*current)
     {
-        if (*p == sound)
+        if (*current == sound)
         {
-            *p = sound->next;
-            return;
+            *current = sound->next;
+            break;
         }
-        p = &((*p)->next);
+        current = &(*current)->next;
     }
 }
 
