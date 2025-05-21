@@ -25,12 +25,12 @@ static rsfx_sound_t* g_sound_cache     = NULL;
 // Helper: find sound in cache by path
 static rsfx_sound_t* find_cached_sound(const char* path)
 {
-    rsfx_sound_t* s = g_sound_cache;
-    while (s)
+    rsfx_sound_t* sound = g_sound_cache;
+    while (sound)
     {
-        if (s->path && strcmp(s->path, path) == 0)
-            return s;
-        s = s->next;
+        if (sound->path && strcmp(sound->path, path) == 0)
+            return sound;
+        sound = sound->next;
     }
     return NULL;
 }
@@ -106,32 +106,32 @@ rsfx_sound_t* rsfx_load_sound(const char* path)
     rsfx_sound_t* cached = find_cached_sound(path);
     if (cached)
         return cached;
-    rsfx_sound_t* s = (rsfx_sound_t*)calloc(1, sizeof(rsfx_sound_t));
-    if (!s)
+    rsfx_sound_t* sound = (rsfx_sound_t*)calloc(1, sizeof(rsfx_sound_t));
+    if (!sound)
         return NULL;
-    s->path = strdup(path);
-    if (ma_decoder_init_file(path, NULL, &s->decoder) != MA_SUCCESS)
+    sound->path = strdup(path);
+    if (ma_decoder_init_file(path, NULL, &sound->decoder) != MA_SUCCESS)
     {
-        free(s->path);
-        free(s);
+        free(sound->path);
+        free(sound);
         return NULL;
     }
     ma_device_config deviceConfig  = ma_device_config_init(ma_device_type_playback);
-    deviceConfig.playback.format   = s->decoder.outputFormat;
-    deviceConfig.playback.channels = s->decoder.outputChannels;
-    deviceConfig.sampleRate        = s->decoder.outputSampleRate;
+    deviceConfig.playback.format   = sound->decoder.outputFormat;
+    deviceConfig.playback.channels = sound->decoder.outputChannels;
+    deviceConfig.sampleRate        = sound->decoder.outputSampleRate;
     deviceConfig.dataCallback      = data_callback;
-    deviceConfig.pUserData         = &s->decoder;
-    if (ma_device_init(NULL, &deviceConfig, &s->device) != MA_SUCCESS)
+    deviceConfig.pUserData         = &sound->decoder;
+    if (ma_device_init(NULL, &deviceConfig, &sound->device) != MA_SUCCESS)
     {
-        ma_decoder_uninit(&s->decoder);
-        free(s->path);
-        free(s);
+        ma_decoder_uninit(&sound->decoder);
+        free(sound->path);
+        free(sound);
         return NULL;
     }
-    s->loaded = 1;
-    cache_sound(s);
-    return s;
+    sound->loaded = 1;
+    cache_sound(sound);
+    return sound;
 }
 
 void rsfx_free_sound(rsfx_sound_t* sound)
@@ -151,12 +151,12 @@ void rsfx_free_sound(rsfx_sound_t* sound)
 
 void rsfx_clear_cache(void)
 {
-    rsfx_sound_t* s = g_sound_cache;
-    while (s)
+    rsfx_sound_t* sound = g_sound_cache;
+    while (sound)
     {
-        rsfx_sound_t* next = s->next;
-        rsfx_free_sound(s);
-        s = next;
+        rsfx_sound_t* next = sound->next;
+        rsfx_free_sound(sound);
+        sound = next;
     }
     g_sound_cache = NULL;
 }
