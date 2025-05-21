@@ -1,5 +1,4 @@
 #include "raster/raster.h"
-#include <glad/glad.h>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -37,7 +36,7 @@ void game_update(float dt)
     rtransform_t* transform = rgfx_get_transform(G.sprite_two);
 
     float angle = G.time * G.orbit_speed;
-     quat  rotation;
+    quat  rotation;
     quat_rotate(rotation, angle, (vec3){ 0.0f, 0.0f, 1.0f });
     rtransform_set_rotation_quat(transform, rotation);
 
@@ -125,6 +124,7 @@ int main(void)
     }
     else
     {
+        rlog_info("Audio system initialized successfully");
         rsfx_sound_t* bgm = rsfx_load_sound("assets/sfx/background.mp3");
         if (bgm)
         {
