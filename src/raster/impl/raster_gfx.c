@@ -269,7 +269,7 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     
     rgfx_sprite_t* sprite = (rgfx_sprite_t*)malloc(sizeof(rgfx_sprite_t));
     if (!sprite) return NULL;
-
+    sprite->hasTexture = false;
     sprite->type = RGFX_OBJECT_TYPE_SPRITE;  // Set type
 
     // Create transform component
