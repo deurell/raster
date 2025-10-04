@@ -29,18 +29,18 @@ static void         free_text_lines(text_lines_t* lines);
 
 struct rgfx_sprite
 {
-    rgfx_object_type_t type;      // Type identifier
+    rgfx_object_type_t type; // Type identifier
     rtransform_t*      transform;
     unsigned int       VAO;
     unsigned int       VBO;
     unsigned int       EBO;
     unsigned int       shaderProgram;
     unsigned int       textureID;
-    bool              hasTexture;
-    vec3              size;
-    color             color;
-    rgfx_uniform_t    uniforms[RGFX_MAX_UNIFORMS];
-    int               uniform_count;
+    bool               hasTexture;
+    vec3               size;
+    color              color;
+    rgfx_uniform_t     uniforms[RGFX_MAX_UNIFORMS];
+    int                uniform_count;
 };
 
 struct rgfx_camera
@@ -77,6 +77,131 @@ struct rgfx_text
 };
 
 static rgfx_camera_t* active_camera = NULL;
+
+#if defined(__EMSCRIPTEN__)
+static const char* DEFAULT_SPRITE_VERTEX_SHADER =
+    "#version 300 es\n"
+    "precision mediump float;\n"
+    "layout (location = 0) in vec2 aPos;\n"
+    "layout (location = 1) in vec2 aTexCoord;\n"
+    "out vec2 TexCoord;\n"
+    "uniform mat4 uModel;\n"
+    "uniform mat4 uView;\n"
+    "uniform mat4 uProjection;\n"
+    "uniform float uTime;\n"
+    "void main()\n"
+    "{\n"
+    "    gl_Position = uProjection * uView * uModel * vec4(aPos, 0.0, 1.0);\n"
+    "    TexCoord = aTexCoord;\n"
+    "}\n";
+
+static const char* DEFAULT_SPRITE_FRAGMENT_SHADER =
+    "#version 300 es\n"
+    "precision mediump float;\n"
+    "out vec4 FragColor;\n"
+    "in vec2 TexCoord;\n"
+    "uniform sampler2D uTexture;\n"
+    "uniform vec3 uColor;\n"
+    "uniform bool uUseTexture;\n"
+    "uniform float uTime;\n"
+    "void main()\n"
+    "{\n"
+    "    vec4 finalColor;\n"
+    "    if (uUseTexture) {\n"
+    "        vec4 texColor = texture(uTexture, TexCoord);\n"
+    "        if (texColor.a < 0.01) {\n"
+    "            discard;\n"
+    "        }\n"
+    "        finalColor = vec4(texColor.rgb * uColor, texColor.a);\n"
+    "    } else {\n"
+    "        finalColor = vec4(uColor, 1.0);\n"
+    "    }\n"
+    "    FragColor = finalColor;\n"
+    "}\n";
+#else
+static const char* DEFAULT_SPRITE_VERTEX_SHADER =
+    "#version 330 core\n"
+    "layout (location = 0) in vec2 aPos;\n"
+    "layout (location = 1) in vec2 aTexCoord;\n"
+    "out vec2 TexCoord;\n"
+    "uniform mat4 uModel;\n"
+    "uniform mat4 uView;\n"
+    "uniform mat4 uProjection;\n"
+    "uniform float uTime;\n"
+    "void main()\n"
+    "{\n"
+    "    gl_Position = uProjection * uView * uModel * vec4(aPos, 0.0, 1.0);\n"
+    "    TexCoord = aTexCoord;\n"
+    "}\n";
+
+static const char* DEFAULT_SPRITE_FRAGMENT_SHADER =
+    "#version 330 core\n"
+    "out vec4 FragColor;\n"
+    "in vec2 TexCoord;\n"
+    "uniform sampler2D uTexture;\n"
+    "uniform vec3 uColor;\n"
+    "uniform bool uUseTexture;\n"
+    "uniform float uTime;\n"
+    "void main()\n"
+    "{\n"
+    "    vec4 finalColor;\n"
+    "    if (uUseTexture) {\n"
+    "        vec4 texColor = texture(uTexture, TexCoord);\n"
+    "        if (texColor.a < 0.01) {\n"
+    "            discard;\n"
+    "        }\n"
+    "        finalColor = vec4(texColor.rgb * uColor, texColor.a);\n"
+    "    } else {\n"
+    "        finalColor = vec4(uColor, 1.0);\n"
+    "    }\n"
+    "    FragColor = finalColor;\n"
+    "}\n";
+#endif
+
+static void rgfx_sprite_release_resources(rgfx_sprite_t* sprite)
+{
+    if (!sprite)
+    {
+        return;
+    }
+
+    if (sprite->hasTexture && sprite->textureID)
+    {
+        glDeleteTextures(1, &sprite->textureID);
+        sprite->textureID = 0;
+        sprite->hasTexture = false;
+    }
+
+    if (sprite->shaderProgram)
+    {
+        glDeleteProgram(sprite->shaderProgram);
+        sprite->shaderProgram = 0;
+    }
+
+    if (sprite->VAO)
+    {
+        glDeleteVertexArrays(1, &sprite->VAO);
+        sprite->VAO = 0;
+    }
+
+    if (sprite->VBO)
+    {
+        glDeleteBuffers(1, &sprite->VBO);
+        sprite->VBO = 0;
+    }
+
+    if (sprite->EBO)
+    {
+        glDeleteBuffers(1, &sprite->EBO);
+        sprite->EBO = 0;
+    }
+
+    if (sprite->transform)
+    {
+        rtransform_destroy(sprite->transform);
+        sprite->transform = NULL;
+    }
+}
 
 char* rgfx_load_shader_source(const char* filepath)
 {
@@ -265,16 +390,23 @@ unsigned int rgfx_create_shader_program(const char* vertexSource, const char* fr
 // Descriptor-based sprite creation
 rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
 {
-    if (!desc) return NULL;
-    
-    rgfx_sprite_t* sprite = (rgfx_sprite_t*)malloc(sizeof(rgfx_sprite_t));
-    if (!sprite) return NULL;
+    if (!desc)
+    {
+        return NULL;
+    }
 
-    sprite->type = RGFX_OBJECT_TYPE_SPRITE;  // Set type
+    rgfx_sprite_t* sprite = (rgfx_sprite_t*)calloc(1, sizeof(rgfx_sprite_t));
+    if (!sprite)
+    {
+        return NULL;
+    }
+
+    sprite->type = RGFX_OBJECT_TYPE_SPRITE; // Set type
 
     // Create transform component
     sprite->transform = rtransform_create();
-    if (!sprite->transform) {
+    if (!sprite->transform)
+    {
         free(sprite);
         return NULL;
     }
@@ -317,34 +449,42 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     }
 
     // Load shader files - no fallback to defaults
-    char* vertexSource = rgfx_load_shader_source(desc->vertex_shader_path);
-    if (!vertexSource)
+    char* vertexSource   = NULL;
+    char* fragmentSource = NULL;
+
+    if (desc->vertex_shader_path)
     {
-        rlog_error("Failed to load vertex shader from %s", desc->vertex_shader_path);
-        free(sprite);
-        return NULL;
+        vertexSource = rgfx_load_shader_source(desc->vertex_shader_path);
+        if (!vertexSource)
+        {
+            rlog_error("Failed to load vertex shader from %s", desc->vertex_shader_path);
+            goto fail;
+        }
     }
 
-    char* fragmentSource = rgfx_load_shader_source(desc->fragment_shader_path);
-    if (!fragmentSource)
+    if (desc->fragment_shader_path)
     {
-        rlog_error("Failed to load fragment shader from %s", desc->fragment_shader_path);
-        free(vertexSource);
-        free(sprite);
-        return NULL;
+        fragmentSource = rgfx_load_shader_source(desc->fragment_shader_path);
+        if (!fragmentSource)
+        {
+            rlog_error("Failed to load fragment shader from %s", desc->fragment_shader_path);
+            goto fail;
+        }
     }
 
-    // Create the shader program
-    sprite->shaderProgram = _create_shader_program(vertexSource, fragmentSource);
+    const char* vertex_source_ptr   = vertexSource ? (const char*)vertexSource : DEFAULT_SPRITE_VERTEX_SHADER;
+    const char* fragment_source_ptr = fragmentSource ? (const char*)fragmentSource : DEFAULT_SPRITE_FRAGMENT_SHADER;
 
-    // Free shader sources after creating program
+    sprite->shaderProgram = _create_shader_program(vertex_source_ptr, fragment_source_ptr);
+
     free(vertexSource);
+    vertexSource = NULL;
     free(fragmentSource);
+    fragmentSource = NULL;
 
     if (sprite->shaderProgram == 0)
     {
-        free(sprite);
-        return NULL;
+        goto fail;
     }
 
     // Load texture if specified
@@ -359,6 +499,8 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
         else
         {
             rlog_warning("Failed to load texture from %s", desc->texture_path);
+            sprite->textureID  = 0;
+            sprite->hasTexture = false;
         }
     }
 
@@ -436,6 +578,13 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     glBindVertexArray(0);
 
     return sprite;
+
+fail:
+    free(vertexSource);
+    free(fragmentSource);
+    rgfx_sprite_release_resources(sprite);
+    free(sprite);
+    return NULL;
 }
 
 void rgfx_sprite_destroy(rgfx_sprite_t* sprite)
@@ -445,13 +594,7 @@ void rgfx_sprite_destroy(rgfx_sprite_t* sprite)
         return;
     }
 
-    // Delete resources
-    glDeleteVertexArrays(1, &sprite->VAO);
-    glDeleteBuffers(1, &sprite->VBO);
-    glDeleteBuffers(1, &sprite->EBO);
-    glDeleteProgram(sprite->shaderProgram);
-
-    // Free memory
+    rgfx_sprite_release_resources(sprite);
     free(sprite);
 }
 
@@ -864,17 +1007,32 @@ void rgfx_set_active_camera(rgfx_camera_t* camera) {
 unsigned int rgfx_load_texture(const char* filepath) {
     if (!filepath) return 0;
 
-    unsigned int textureID;
+    unsigned int textureID = 0;
     glGenTextures(1, &textureID);
-    
-    int width, height, channels;
-    unsigned char* data = stbi_load(filepath, &width, &height, &channels, 0);
-    if (!data) {
+
+    int            width = 0;
+    int            height = 0;
+    int            channels = 0;
+    unsigned char* data    = stbi_load(filepath, &width, &height, &channels, 0);
+    if (!data)
+    {
         rlog_error("Failed to load texture: %s\n", filepath);
+        if (textureID)
+        {
+            glDeleteTextures(1, &textureID);
+        }
         return 0;
     }
 
-    GLenum format = channels == 4 ? GL_RGBA : GL_RGB;
+    GLenum format = GL_RGB;
+    if (channels == 4)
+    {
+        format = GL_RGBA;
+    }
+    else if (channels == 1)
+    {
+        format = GL_RED;
+    }
 
     glBindTexture(GL_TEXTURE_2D, textureID);
     glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
