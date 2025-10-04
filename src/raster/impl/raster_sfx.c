@@ -94,11 +94,6 @@ bool rsfx_init(void)
     return true;
 }
 
-void rsfx_terminate(void)
-{
-    g_sfx_initialized = 0;
-}
-
 rsfx_sound_t* rsfx_load_sound(const char* path)
 {
     if (!g_sfx_initialized)
@@ -159,6 +154,12 @@ void rsfx_clear_cache(void)
         sound = next;
     }
     g_sound_cache = NULL;
+}
+
+void rsfx_terminate(void)
+{
+    rsfx_clear_cache();
+    g_sfx_initialized = 0;
 }
 
 bool rsfx_play_sound(rsfx_sound_t* sound, bool loop)

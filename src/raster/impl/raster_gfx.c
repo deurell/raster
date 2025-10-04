@@ -118,6 +118,37 @@ static const char* DEFAULT_SPRITE_FRAGMENT_SHADER =
     "    }\n"
     "    FragColor = finalColor;\n"
     "}\n";
+
+static const char* DEFAULT_TEXT_VERTEX_SHADER =
+    "#version 300 es\n"
+    "precision mediump float;\n"
+    "layout (location = 0) in vec2 aPos;\n"
+    "layout (location = 1) in vec2 aTexCoord;\n"
+    "uniform mat4 uModel;\n"
+    "uniform mat4 uView;\n"
+    "uniform mat4 uProjection;\n"
+    "out vec2 TexCoord;\n"
+    "void main()\n"
+    "{\n"
+    "    gl_Position = uProjection * uView * uModel * vec4(aPos, 0.0, 1.0);\n"
+    "    TexCoord = aTexCoord;\n"
+    "}\n";
+
+static const char* DEFAULT_TEXT_FRAGMENT_SHADER =
+    "#version 300 es\n"
+    "precision mediump float;\n"
+    "in vec2 TexCoord;\n"
+    "out vec4 FragColor;\n"
+    "uniform sampler2D uTexture;\n"
+    "uniform vec3 uColor;\n"
+    "void main()\n"
+    "{\n"
+    "    float textAlpha = texture(uTexture, TexCoord).r;\n"
+    "    if (textAlpha < 0.01) {\n"
+    "        discard;\n"
+    "    }\n"
+    "    FragColor = vec4(uColor, 1.0);\n"
+    "}\n";
 #else
 static const char* DEFAULT_SPRITE_VERTEX_SHADER =
     "#version 330 core\n"
@@ -156,7 +187,38 @@ static const char* DEFAULT_SPRITE_FRAGMENT_SHADER =
     "    }\n"
     "    FragColor = finalColor;\n"
     "}\n";
+
+static const char* DEFAULT_TEXT_VERTEX_SHADER =
+    "#version 330 core\n"
+    "layout (location = 0) in vec2 aPos;\n"
+    "layout (location = 1) in vec2 aTexCoord;\n"
+    "uniform mat4 uModel;\n"
+    "uniform mat4 uView;\n"
+    "uniform mat4 uProjection;\n"
+    "out vec2 TexCoord;\n"
+    "void main()\n"
+    "{\n"
+    "    gl_Position = uProjection * uView * uModel * vec4(aPos, 0.0, 1.0);\n"
+    "    TexCoord = aTexCoord;\n"
+    "}\n";
+
+static const char* DEFAULT_TEXT_FRAGMENT_SHADER =
+    "#version 330 core\n"
+    "in vec2 TexCoord;\n"
+    "out vec4 FragColor;\n"
+    "uniform sampler2D uTexture;\n"
+    "uniform vec3 uColor;\n"
+    "void main()\n"
+    "{\n"
+    "    float textAlpha = texture(uTexture, TexCoord).r;\n"
+    "    if (textAlpha < 0.01) {\n"
+    "        discard;\n"
+    "    }\n"
+    "    FragColor = vec4(uColor, 1.0);\n"
+    "}\n";
 #endif
+
+static unsigned int _create_shader_program(const char* vertexSource, const char* fragmentSource);
 
 static void rgfx_sprite_release_resources(rgfx_sprite_t* sprite)
 {
@@ -200,6 +262,37 @@ static void rgfx_sprite_release_resources(rgfx_sprite_t* sprite)
     {
         rtransform_destroy(sprite->transform);
         sprite->transform = NULL;
+    }
+}
+
+static unsigned int text_shader_program      = 0;
+static int          text_shader_refcount     = 0;
+
+static unsigned int rgfx_acquire_text_shader_program(void)
+{
+    if (text_shader_program == 0)
+    {
+        text_shader_program = _create_shader_program(DEFAULT_TEXT_VERTEX_SHADER, DEFAULT_TEXT_FRAGMENT_SHADER);
+        if (text_shader_program == 0)
+        {
+            return 0;
+        }
+    }
+
+    text_shader_refcount++;
+    return text_shader_program;
+}
+
+static void rgfx_release_text_shader_program(void)
+{
+    if (text_shader_refcount > 0)
+    {
+        text_shader_refcount--;
+        if (text_shader_refcount == 0 && text_shader_program != 0)
+        {
+            glDeleteProgram(text_shader_program);
+            text_shader_program = 0;
+        }
     }
 }
 
@@ -312,6 +405,7 @@ static unsigned int _compile_shader(unsigned int type, const char* source)
     {
         glGetShaderInfoLog(shader, 512, NULL, infoLog);
         rlog_error("ERROR: Shader compilation failed\n%s\n", infoLog);
+        glDeleteShader(shader);
         return 0;
     }
     return shader;
@@ -751,23 +845,7 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc) {
         2, 3, 0
     };
 
-    // Load shaders
-    char* vertexSource = rgfx_load_shader_source("assets/shaders/text.vert");
-    char* fragmentSource = rgfx_load_shader_source("assets/shaders/text.frag");
-
-    if (!vertexSource || !fragmentSource) {
-        if (vertexSource) free(vertexSource);
-        if (fragmentSource) free(fragmentSource);
-        free(text->font_buffer);
-        free(text->transform);
-        free(text);
-        return NULL;
-    }
-
-    text->shaderProgram = _create_shader_program(vertexSource, fragmentSource);
-    free(vertexSource);
-    free(fragmentSource);
-
+    text->shaderProgram = rgfx_acquire_text_shader_program();
     if (!text->shaderProgram) {
         free(text->font_buffer);
         free(text->transform);
@@ -801,7 +879,7 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc) {
         glDeleteVertexArrays(1, &text->VAO);
         glDeleteBuffers(1, &text->VBO);
         glDeleteBuffers(1, &text->EBO);
-        glDeleteProgram(text->shaderProgram);
+        rgfx_release_text_shader_program();
         free(text->font_buffer);
         free(text->transform);
         free(text);
@@ -1013,6 +1091,8 @@ unsigned int rgfx_load_texture(const char* filepath) {
     int            width = 0;
     int            height = 0;
     int            channels = 0;
+    // Match the engine's coordinate system so textures don't appear upside down
+    stbi_set_flip_vertically_on_load(1);
     unsigned char* data    = stbi_load(filepath, &width, &height, &channels, 0);
     if (!data)
     {
@@ -1231,7 +1311,7 @@ void rgfx_text_destroy(rgfx_text_t* text) {
     glDeleteVertexArrays(1, &text->VAO);
     glDeleteBuffers(1, &text->VBO);
     glDeleteBuffers(1, &text->EBO);
-    glDeleteProgram(text->shaderProgram);
+    rgfx_release_text_shader_program();
 
     free(text);
 }
