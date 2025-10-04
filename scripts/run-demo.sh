@@ -9,4 +9,4 @@ if [ ! -x "${BUILD_DIR}/examples/hello_world/hello_world" ]; then
   "${ROOT_DIR}/scripts/build-native.sh"
 fi
 
-"${BUILD_DIR}/examples/hello_world/hello_world" "$@"
+(cd "${BUILD_DIR}/examples/hello_world" && ./hello_world "$@")
