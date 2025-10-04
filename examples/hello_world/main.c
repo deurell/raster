@@ -6,10 +6,10 @@
 
 typedef struct
 {
-    rgfx_sprite_t* sprite_one;
-    rgfx_sprite_t* sprite_two;
-    rgfx_sprite_t* sprite_rasterbar;
-    rgfx_text_t*   text;
+    rgfx_sprite_handle sprite_one;
+    rgfx_sprite_handle sprite_two;
+    rgfx_sprite_handle sprite_rasterbar;
+    rgfx_text_handle   text;
     float          time;
     float          bounce_speed;
     float          orbit_speed;
@@ -33,7 +33,7 @@ void game_update(float dt)
                        orbit_radius * sinf(theta) * cosf(phi) };
     rgfx_sprite_set_position(G.sprite_two, local_pos);
 
-    rtransform_t* transform = rgfx_get_transform(G.sprite_two);
+    rtransform_t* transform = rgfx_sprite_get_transform(G.sprite_two);
 
     float angle = G.time * G.orbit_speed;
     quat  rotation;
@@ -64,8 +64,8 @@ void game_update(float dt)
     if (rinput_key_down(RINPUT_KEY_0))
     {
         rlog_info("Key 0 pressed");
-        rsfx_sound_t* sound = rsfx_load_sound("assets/sfx/bounce.wav");
-        if (sound)
+        rsfx_sound_handle sound = rsfx_load_sound("assets/sfx/bounce.wav");
+        if (sound != RSFX_INVALID_SOUND_HANDLE)
         {
             rsfx_play_sound(sound, false);
         }
@@ -90,10 +90,26 @@ void game_draw(void)
 void game_cleanup(void)
 {
     rlog_info("Cleaning up game resources");
-    rgfx_sprite_destroy(G.sprite_one);
-    rgfx_sprite_destroy(G.sprite_two);
-    rgfx_sprite_destroy(G.sprite_rasterbar);
-    rgfx_text_destroy(G.text);
+    if (G.sprite_one != RGFX_INVALID_SPRITE_HANDLE)
+    {
+        rgfx_sprite_destroy(G.sprite_one);
+        G.sprite_one = RGFX_INVALID_SPRITE_HANDLE;
+    }
+    if (G.sprite_two != RGFX_INVALID_SPRITE_HANDLE)
+    {
+        rgfx_sprite_destroy(G.sprite_two);
+        G.sprite_two = RGFX_INVALID_SPRITE_HANDLE;
+    }
+    if (G.sprite_rasterbar != RGFX_INVALID_SPRITE_HANDLE)
+    {
+        rgfx_sprite_destroy(G.sprite_rasterbar);
+        G.sprite_rasterbar = RGFX_INVALID_SPRITE_HANDLE;
+    }
+    if (G.text != RGFX_INVALID_TEXT_HANDLE)
+    {
+        rgfx_text_destroy(G.text);
+        G.text = RGFX_INVALID_TEXT_HANDLE;
+    }
 }
 
 int main(void)
@@ -125,8 +141,8 @@ int main(void)
     else
     {
         rlog_info("Audio system initialized successfully");
-        rsfx_sound_t* bgm = rsfx_load_sound("assets/sfx/background.mp3");
-        if (bgm)
+        rsfx_sound_handle bgm = rsfx_load_sound("assets/sfx/background.mp3");
+        if (bgm != RSFX_INVALID_SOUND_HANDLE)
         {
             rsfx_play_sound(bgm, true); // Loop background music
         }
@@ -145,6 +161,11 @@ int main(void)
                                        .texture_path         = "assets/textures/googly-a.png" };
 
     G.sprite_one = rgfx_sprite_create(&sprite_desc);
+    if (G.sprite_one == RGFX_INVALID_SPRITE_HANDLE)
+    {
+        rlog_fatal("Failed to create sprite_one");
+        return -1;
+    }
 
     rgfx_sprite_desc_t sprite_two_desc = { .position             = { 1.5f, 0.0f, 0.0f },
                                            .scale                = { 0.5f, 0.5f, 0.5f },
@@ -154,8 +175,13 @@ int main(void)
                                            .texture_path         = "assets/textures/googly-e.png" };
 
     G.sprite_two = rgfx_sprite_create(&sprite_two_desc);
+    if (G.sprite_two == RGFX_INVALID_SPRITE_HANDLE)
+    {
+        rlog_fatal("Failed to create sprite_two");
+        return -1;
+    }
 
-    rgfx_set_parent(G.sprite_two, G.sprite_one);
+    rgfx_sprite_set_parent(G.sprite_two, G.sprite_one);
 
     rgfx_sprite_desc_t rasterbar_desc = {
         .position             = { 0.0f, 0.0f, 0.0f },
@@ -168,6 +194,11 @@ int main(void)
     };
 
     G.sprite_rasterbar = rgfx_sprite_create(&rasterbar_desc);
+    if (G.sprite_rasterbar == RGFX_INVALID_SPRITE_HANDLE)
+    {
+        rlog_fatal("Failed to create rasterbar sprite");
+        return -1;
+    }
 
     rgfx_text_desc_t text_desc = { .font_path    = "assets/fonts/roboto.ttf",
                                    .font_size    = 64.0f,
@@ -178,6 +209,11 @@ int main(void)
                                    .alignment    = RGFX_TEXT_ALIGN_CENTER };
 
     G.text = rgfx_text_create(&text_desc);
+    if (G.text == RGFX_INVALID_TEXT_HANDLE)
+    {
+        rlog_fatal("Failed to create text object");
+        return -1;
+    }
 
     G.time         = 0.0f;
     G.bounce_speed = 2.2f;

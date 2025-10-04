@@ -10,14 +10,20 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct stbtt_fontinfo stbtt_fontinfo;
 
 #define RGFX_MAX_TEXT_LENGTH 256
 
+typedef struct rgfx_sprite rgfx_sprite_t;
+typedef struct rgfx_text   rgfx_text_t;
+typedef struct rgfx_camera rgfx_camera_t;
+
 struct rgfx_sprite
 {
     rgfx_object_type_t type;
+    rgfx_sprite_handle handle;
     rtransform_t*      transform;
     unsigned int       VAO;
     unsigned int       VBO;
@@ -45,6 +51,7 @@ struct rgfx_camera
 struct rgfx_text
 {
     rgfx_object_type_t type;
+    rgfx_text_handle   handle;
     rtransform_t*      transform;
     unsigned int       VAO;
     unsigned int       VBO;
@@ -74,3 +81,12 @@ void           rgfx_internal_set_active_camera(rgfx_camera_t* camera);
 
 unsigned int rgfx_internal_acquire_text_shader_program(void);
 void         rgfx_internal_release_text_shader_program(void);
+
+rgfx_sprite_handle rgfx_internal_sprite_register(rgfx_sprite_t* sprite);
+void               rgfx_internal_sprite_unregister(rgfx_sprite_handle sprite);
+rgfx_sprite_t*     rgfx_internal_sprite_resolve(rgfx_sprite_handle sprite);
+
+rgfx_text_handle rgfx_internal_text_register(rgfx_text_t* text);
+void             rgfx_internal_text_unregister(rgfx_text_handle text);
+rgfx_text_t*     rgfx_internal_text_resolve(rgfx_text_handle text);
+

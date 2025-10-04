@@ -40,7 +40,7 @@ static rgfx_text_lines_t rgfx_split_text_into_lines(const char* text)
 
     result.count = line_count;
 
-    const char* start     = text;
+    const char* start      = text;
     int         line_index = 0;
     for (const char* p = text;; ++p)
     {
@@ -82,17 +82,24 @@ static void rgfx_free_text_lines(rgfx_text_lines_t* lines)
     lines->count = 0;
 }
 
-rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc)
+static rgfx_text_t* rgfx_text_from_handle(rgfx_text_handle handle)
+{
+    return rgfx_internal_text_resolve(handle);
+}
+
+static bool rgfx_text_update_bitmap_ptr(rgfx_text_t* text);
+
+rgfx_text_handle rgfx_text_create(const rgfx_text_desc_t* desc)
 {
     if (!desc || !desc->font_path || !desc->text)
     {
-        return NULL;
+        return RGFX_INVALID_TEXT_HANDLE;
     }
 
     rgfx_text_t* text = (rgfx_text_t*)calloc(1, sizeof(rgfx_text_t));
     if (!text)
     {
-        return NULL;
+        return RGFX_INVALID_TEXT_HANDLE;
     }
 
     text->type         = RGFX_OBJECT_TYPE_TEXT;
@@ -108,7 +115,7 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc)
     if (!text->transform)
     {
         free(text);
-        return NULL;
+        return RGFX_INVALID_TEXT_HANDLE;
     }
 
     vec3 position;
@@ -123,7 +130,7 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc)
     {
         rtransform_destroy(text->transform);
         free(text);
-        return NULL;
+        return RGFX_INVALID_TEXT_HANDLE;
     }
 
     fseek(font_file, 0, SEEK_END);
@@ -136,7 +143,7 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc)
         fclose(font_file);
         rtransform_destroy(text->transform);
         free(text);
-        return NULL;
+        return RGFX_INVALID_TEXT_HANDLE;
     }
 
     fread(text->font_buffer, 1, (size_t)font_size_bytes, font_file);
@@ -148,7 +155,7 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc)
         free(text->font_buffer);
         rtransform_destroy(text->transform);
         free(text);
-        return NULL;
+        return RGFX_INVALID_TEXT_HANDLE;
     }
 
     if (!stbtt_InitFont(text->font_info, text->font_buffer, 0))
@@ -157,7 +164,7 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc)
         free(text->font_buffer);
         rtransform_destroy(text->transform);
         free(text);
-        return NULL;
+        return RGFX_INVALID_TEXT_HANDLE;
     }
 
     const float quad_vertices[] = {
@@ -176,7 +183,7 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc)
         free(text->font_buffer);
         rtransform_destroy(text->transform);
         free(text);
-        return NULL;
+        return RGFX_INVALID_TEXT_HANDLE;
     }
 
     glGenVertexArrays(1, &text->VAO);
@@ -197,7 +204,7 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc)
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    if (!rgfx_text_update_bitmap(text))
+    if (!rgfx_text_update_bitmap_ptr(text))
     {
         glDeleteVertexArrays(1, &text->VAO);
         glDeleteBuffers(1, &text->VBO);
@@ -207,18 +214,35 @@ rgfx_text_t* rgfx_text_create(const rgfx_text_desc_t* desc)
         free(text->font_buffer);
         rtransform_destroy(text->transform);
         free(text);
-        return NULL;
+        return RGFX_INVALID_TEXT_HANDLE;
     }
 
-    return text;
+    rgfx_text handle = rgfx_internal_text_register(text);
+    if (handle == RGFX_INVALID_TEXT_HANDLE)
+    {
+        glDeleteVertexArrays(1, &text->VAO);
+        glDeleteBuffers(1, &text->VBO);
+        glDeleteBuffers(1, &text->EBO);
+        rgfx_internal_release_text_shader_program();
+        free(text->font_info);
+        free(text->font_buffer);
+        rtransform_destroy(text->transform);
+        free(text);
+        return RGFX_INVALID_TEXT_HANDLE;
+    }
+
+    return handle;
 }
 
-void rgfx_text_destroy(rgfx_text_t* text)
+void rgfx_text_destroy(rgfx_text_handle handle)
 {
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
     if (!text)
     {
         return;
     }
+
+    rgfx_internal_text_unregister(handle);
 
     if (text->font_buffer)
     {
@@ -249,8 +273,9 @@ void rgfx_text_destroy(rgfx_text_t* text)
     free(text);
 }
 
-void rgfx_text_draw(rgfx_text_t* text)
+void rgfx_text_draw(rgfx_text_handle handle)
 {
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
     if (!text)
     {
         return;
@@ -271,7 +296,10 @@ void rgfx_text_draw(rgfx_text_t* text)
 
     glUniformMatrix4fv(glGetUniformLocation(text->shaderProgram, "uModel"), 1, GL_FALSE, (float*)final_transform);
 
-    glUniform3f(glGetUniformLocation(text->shaderProgram, "uColor"), text->text_color.r, text->text_color.g, text->text_color.b);
+    glUniform3f(glGetUniformLocation(text->shaderProgram, "uColor"),
+                text->text_color.r,
+                text->text_color.g,
+                text->text_color.b);
 
     rgfx_camera_t* camera = rgfx_internal_get_active_camera();
     if (camera)
@@ -299,7 +327,7 @@ void rgfx_text_draw(rgfx_text_t* text)
     glBindVertexArray(0);
 }
 
-bool rgfx_text_update_bitmap(rgfx_text_t* text)
+static bool rgfx_text_update_bitmap_ptr(rgfx_text_t* text)
 {
     if (!text || !text->font_info)
     {
@@ -323,11 +351,8 @@ bool rgfx_text_update_bitmap(rgfx_text_t* text)
     int ascent, descent, line_gap;
     stbtt_GetFontVMetrics(text->font_info, &ascent, &descent, &line_gap);
 
-    int rounded_ascent    = (int)(ascent * scale + 0.5f);
-    int rounded_descent   = (int)(descent * scale - 0.5f);
-    int rounded_line_gap  = (int)(line_gap * scale + 0.5f);
-
-    (void)rounded_line_gap;
+    int rounded_ascent   = (int)(ascent * scale + 0.5f);
+    int rounded_descent  = (int)(descent * scale - 0.5f);
 
     float line_spacing = text->line_spacing > 0 ? text->line_spacing : 1.2f;
     int   line_height  = (int)(((rounded_ascent - rounded_descent) * line_spacing) + 0.5f);
@@ -467,26 +492,37 @@ bool rgfx_text_update_bitmap(rgfx_text_t* text)
     return true;
 }
 
-void rgfx_text_set_position(rgfx_text_t* text, vec3 position)
+bool rgfx_text_update_bitmap(rgfx_text_handle handle)
 {
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
+    return rgfx_text_update_bitmap_ptr(text);
+}
+
+void rgfx_text_set_position(rgfx_text_handle handle, vec3 position)
+{
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
     if (!text)
     {
         return;
     }
+
     rtransform_set_position(text->transform, position);
 }
 
-void rgfx_text_set_color(rgfx_text_t* text, color color)
+void rgfx_text_set_color(rgfx_text_handle handle, color color)
 {
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
     if (!text)
     {
         return;
     }
+
     text->text_color = color;
 }
 
-void rgfx_text_set_text(rgfx_text_t* text, const char* new_text)
+void rgfx_text_set_text(rgfx_text_handle handle, const char* new_text)
 {
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
     if (!text || !new_text)
     {
         return;
@@ -494,11 +530,12 @@ void rgfx_text_set_text(rgfx_text_t* text, const char* new_text)
 
     strncpy(text->text, new_text, RGFX_MAX_TEXT_LENGTH - 1);
     text->text[RGFX_MAX_TEXT_LENGTH - 1] = '\0';
-    rgfx_text_update_bitmap(text);
+    rgfx_text_update_bitmap_ptr(text);
 }
 
-void rgfx_text_set_font_size(rgfx_text_t* text, float size)
+void rgfx_text_set_font_size(rgfx_text_handle handle, float size)
 {
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
     if (!text || size <= 0.0f)
     {
         return;
@@ -508,11 +545,12 @@ void rgfx_text_set_font_size(rgfx_text_t* text, float size)
 
     vec3 scale = { size * 0.04f, size * -0.04f, 1.0f };
     rtransform_set_scale(text->transform, scale);
-    rgfx_text_update_bitmap(text);
+    rgfx_text_update_bitmap_ptr(text);
 }
 
-void rgfx_text_set_alignment(rgfx_text_t* text, int alignment)
+void rgfx_text_set_alignment(rgfx_text_handle handle, int alignment)
 {
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
     if (!text)
     {
         return;
@@ -526,12 +564,13 @@ void rgfx_text_set_alignment(rgfx_text_t* text, int alignment)
     if (text->alignment != alignment)
     {
         text->alignment = alignment;
-        rgfx_text_update_bitmap(text);
+        rgfx_text_update_bitmap_ptr(text);
     }
 }
 
-void rgfx_text_set_line_spacing(rgfx_text_t* text, float spacing)
+void rgfx_text_set_line_spacing(rgfx_text_handle handle, float spacing)
 {
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
     if (!text)
     {
         return;
@@ -549,21 +588,30 @@ void rgfx_text_set_line_spacing(rgfx_text_t* text, float spacing)
     if (text->line_spacing != spacing)
     {
         text->line_spacing = spacing;
-        rgfx_text_update_bitmap(text);
+        rgfx_text_update_bitmap_ptr(text);
     }
 }
 
-void rgfx_text_get_position(rgfx_text_t* text, vec3 out_position)
+void rgfx_text_get_position(rgfx_text_handle handle, vec3 out_position)
 {
-    if (!text || !out_position)
+    if (!out_position)
     {
         return;
     }
+
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
+    if (!text)
+    {
+        out_position[0] = out_position[1] = out_position[2] = 0.0f;
+        return;
+    }
+
     rtransform_get_world_position(text->transform, out_position);
 }
 
-color rgfx_text_get_color(rgfx_text_t* text)
+color rgfx_text_get_color(rgfx_text_handle handle)
 {
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
     if (!text)
     {
         color c = { 0, 0, 0 };
@@ -572,28 +620,39 @@ color rgfx_text_get_color(rgfx_text_t* text)
     return text->text_color;
 }
 
-float rgfx_text_get_font_size(rgfx_text_t* text)
+float rgfx_text_get_font_size(rgfx_text_handle handle)
 {
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
     return text ? text->font_size : 0.0f;
 }
 
-const char* rgfx_text_get_text(rgfx_text_t* text)
+const char* rgfx_text_get_text(rgfx_text_handle handle)
 {
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
     return text ? text->text : NULL;
 }
 
-int rgfx_text_get_alignment(rgfx_text_t* text)
+int rgfx_text_get_alignment(rgfx_text_handle handle)
 {
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
     return text ? text->alignment : RGFX_TEXT_ALIGN_LEFT;
 }
 
-float rgfx_text_get_line_spacing(rgfx_text_t* text)
+float rgfx_text_get_line_spacing(rgfx_text_handle handle)
 {
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
     return text ? text->line_spacing : 1.2f;
 }
 
-void rgfx_text_set_rotation(rgfx_text_t* text, float rotation)
+rtransform_t* rgfx_text_get_transform(rgfx_text_handle handle)
 {
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
+    return text ? text->transform : NULL;
+}
+
+void rgfx_text_set_rotation(rgfx_text_handle handle, float rotation)
+{
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
     if (!text)
     {
         return;
@@ -603,12 +662,37 @@ void rgfx_text_set_rotation(rgfx_text_t* text, float rotation)
     rtransform_set_rotation_axis_angle(text->transform, axis, rotation);
 }
 
-void rgfx_text_get_world_position(rgfx_text_t* text, vec3 out_position)
+void rgfx_text_get_world_position(rgfx_text_handle handle, vec3 out_position)
 {
-    if (!text || !out_position)
+    if (!out_position)
     {
         return;
     }
 
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
+    if (!text)
+    {
+        out_position[0] = out_position[1] = out_position[2] = 0.0f;
+        return;
+    }
+
     rtransform_get_world_position(text->transform, out_position);
+}
+
+void rgfx_text_set_parent(rgfx_text_handle handle, rgfx_sprite_handle parent)
+{
+    rgfx_text_t* text = rgfx_text_from_handle(handle);
+    if (!text)
+    {
+        return;
+    }
+
+    rtransform_t* parent_transform = NULL;
+    if (parent != RGFX_INVALID_SPRITE_HANDLE)
+    {
+        rgfx_sprite_t* parent_ptr = rgfx_internal_sprite_resolve(parent);
+        parent_transform = parent_ptr ? parent_ptr->transform : NULL;
+    }
+
+    rtransform_set_parent(text->transform, parent_transform);
 }

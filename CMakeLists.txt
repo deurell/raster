@@ -31,7 +31,9 @@ target_include_directories(glad PUBLIC external/glad/include)
 # Add the raster library
 add_library(raster STATIC
     src/raster/impl/raster_app.c
-    src/raster/impl/raster_gfx.c
+    src/raster/impl/raster_gfx_common.c
+    src/raster/impl/raster_gfx_sprite.c
+    src/raster/impl/raster_gfx_text.c
     src/raster/impl/raster_input.c
     src/raster/impl/raster_log.c
     src/raster/impl/raster_sfx.c

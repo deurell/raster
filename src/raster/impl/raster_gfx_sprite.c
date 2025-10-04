@@ -48,26 +48,30 @@ static void rgfx_sprite_release_resources(rgfx_sprite_t* sprite)
     }
 }
 
-rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
+static rgfx_sprite_t* rgfx_sprite_from_handle(rgfx_sprite_handle handle)
+{
+    return rgfx_internal_sprite_resolve(handle);
+}
+
+rgfx_sprite_handle rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
 {
     if (!desc)
     {
-        return NULL;
+        return RGFX_INVALID_SPRITE_HANDLE;
     }
 
     rgfx_sprite_t* sprite = (rgfx_sprite_t*)calloc(1, sizeof(rgfx_sprite_t));
     if (!sprite)
     {
-        return NULL;
+        return RGFX_INVALID_SPRITE_HANDLE;
     }
 
     sprite->type = RGFX_OBJECT_TYPE_SPRITE;
-
     sprite->transform = rtransform_create();
     if (!sprite->transform)
     {
         free(sprite);
-        return NULL;
+        return RGFX_INVALID_SPRITE_HANDLE;
     }
 
     vec3 position;
@@ -80,20 +84,19 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     vec3_dup(sprite->size, desc->scale);
     sprite->color = desc->color;
 
-    sprite->uniform_count = 0;
     if (desc->uniform_count > 0)
     {
         sprite->uniform_count = desc->uniform_count > RGFX_MAX_UNIFORMS ? RGFX_MAX_UNIFORMS : desc->uniform_count;
-        for (int i = 0; i < sprite->uniform_count; i++)
+        for (int i = 0; i < sprite->uniform_count; ++i)
         {
             sprite->uniforms[i] = desc->uniforms[i];
         }
     }
     else
     {
-        for (int i = 0; i < RGFX_MAX_UNIFORMS; i++)
+        for (int i = 0; i < RGFX_MAX_UNIFORMS; ++i)
         {
-            if (desc->uniforms[i].name != NULL)
+            if (desc->uniforms[i].name)
             {
                 sprite->uniforms[sprite->uniform_count++] = desc->uniforms[i];
             }
@@ -211,51 +214,60 @@ rgfx_sprite_t* rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    return sprite;
+    rgfx_sprite handle = rgfx_internal_sprite_register(sprite);
+    if (handle == RGFX_INVALID_SPRITE_HANDLE)
+    {
+        goto fail;
+    }
+
+    return handle;
 
 fail:
     free(vertex_source);
     free(fragment_source);
     rgfx_sprite_release_resources(sprite);
     free(sprite);
-    return NULL;
+    return RGFX_INVALID_SPRITE_HANDLE;
 }
 
-void rgfx_sprite_destroy(rgfx_sprite_t* sprite)
+void rgfx_sprite_destroy(rgfx_sprite_handle sprite)
 {
-    if (!sprite)
+    rgfx_sprite_t* sprite_ptr = rgfx_sprite_from_handle(sprite);
+    if (!sprite_ptr)
     {
         return;
     }
 
-    rgfx_sprite_release_resources(sprite);
-    free(sprite);
+    rgfx_internal_sprite_unregister(sprite);
+    rgfx_sprite_release_resources(sprite_ptr);
+    free(sprite_ptr);
 }
 
-void rgfx_sprite_draw(rgfx_sprite_t* sprite)
+void rgfx_sprite_draw(rgfx_sprite_handle sprite)
 {
-    if (!sprite)
+    rgfx_sprite_t* sprite_ptr = rgfx_sprite_from_handle(sprite);
+    if (!sprite_ptr)
     {
         return;
     }
 
-    glUseProgram(sprite->shaderProgram);
+    glUseProgram(sprite_ptr->shaderProgram);
 
-    rtransform_update(sprite->transform);
-    glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uModel"), 1, GL_FALSE, (float*)sprite->transform->world);
+    rtransform_update(sprite_ptr->transform);
+    glUniformMatrix4fv(glGetUniformLocation(sprite_ptr->shaderProgram, "uModel"), 1, GL_FALSE, (float*)sprite_ptr->transform->world);
 
-    glUniform2f(glGetUniformLocation(sprite->shaderProgram, "uSize"), sprite->size[0], sprite->size[1]);
-    glUniform3f(glGetUniformLocation(sprite->shaderProgram, "uColor"), sprite->color.r, sprite->color.g, sprite->color.b);
+    glUniform2f(glGetUniformLocation(sprite_ptr->shaderProgram, "uSize"), sprite_ptr->size[0], sprite_ptr->size[1]);
+    glUniform3f(glGetUniformLocation(sprite_ptr->shaderProgram, "uColor"), sprite_ptr->color.r, sprite_ptr->color.g, sprite_ptr->color.b);
 
     float currentTime = rapp_get_time();
-    glUniform1f(glGetUniformLocation(sprite->shaderProgram, "uTime"), currentTime);
+    glUniform1f(glGetUniformLocation(sprite_ptr->shaderProgram, "uTime"), currentTime);
 
-    glUniform1i(glGetUniformLocation(sprite->shaderProgram, "uUseTexture"), sprite->hasTexture ? 1 : 0);
+    glUniform1i(glGetUniformLocation(sprite_ptr->shaderProgram, "uUseTexture"), sprite_ptr->hasTexture ? 1 : 0);
 
-    for (int i = 0; i < sprite->uniform_count; i++)
+    for (int i = 0; i < sprite_ptr->uniform_count; ++i)
     {
-        const rgfx_uniform_t* uniform = &sprite->uniforms[i];
-        int location = glGetUniformLocation(sprite->shaderProgram, uniform->name);
+        const rgfx_uniform_t* uniform = &sprite_ptr->uniforms[i];
+        int location = glGetUniformLocation(sprite_ptr->shaderProgram, uniform->name);
         if (location == -1)
         {
             continue;
@@ -287,302 +299,255 @@ void rgfx_sprite_draw(rgfx_sprite_t* sprite)
         mat4x4 view;
         mat4x4 projection;
         rgfx_camera_get_matrices(camera, view, projection);
-        glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uView"), 1, GL_FALSE, (float*)view);
-        glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uProjection"), 1, GL_FALSE, (float*)projection);
+        glUniformMatrix4fv(glGetUniformLocation(sprite_ptr->shaderProgram, "uView"), 1, GL_FALSE, (float*)view);
+        glUniformMatrix4fv(glGetUniformLocation(sprite_ptr->shaderProgram, "uProjection"), 1, GL_FALSE, (float*)projection);
     }
     else
     {
         mat4x4 identity;
         mat4x4_identity(identity);
-        glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uView"), 1, GL_FALSE, (float*)identity);
-        glUniformMatrix4fv(glGetUniformLocation(sprite->shaderProgram, "uProjection"), 1, GL_FALSE, (float*)identity);
+        glUniformMatrix4fv(glGetUniformLocation(sprite_ptr->shaderProgram, "uView"), 1, GL_FALSE, (float*)identity);
+        glUniformMatrix4fv(glGetUniformLocation(sprite_ptr->shaderProgram, "uProjection"), 1, GL_FALSE, (float*)identity);
     }
 
-    if (sprite->hasTexture)
+    if (sprite_ptr->hasTexture)
     {
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, sprite->textureID);
-        glUniform1i(glGetUniformLocation(sprite->shaderProgram, "uTexture"), 0);
+        glBindTexture(GL_TEXTURE_2D, sprite_ptr->textureID);
+        glUniform1i(glGetUniformLocation(sprite_ptr->shaderProgram, "uTexture"), 0);
     }
 
-    glBindVertexArray(sprite->VAO);
+    glBindVertexArray(sprite_ptr->VAO);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }
 
-void rgfx_sprite_set_position(rgfx_sprite_t* sprite, vec3 position)
+void rgfx_sprite_set_position(rgfx_sprite_handle sprite, vec3 position)
 {
-    if (!sprite)
-    {
-        return;
-    }
-    rtransform_set_position(sprite->transform, position);
-}
-
-void rgfx_sprite_set_size(rgfx_sprite_t* sprite, vec2 size)
-{
-    if (!sprite)
-    {
-        return;
-    }
-    vec3 new_scale = { size[0], size[1], sprite->size[2] };
-    rtransform_set_scale(sprite->transform, new_scale);
-    sprite->size[0] = size[0];
-    sprite->size[1] = size[1];
-}
-
-void rgfx_sprite_set_color(rgfx_sprite_t* sprite, color color)
-{
-    if (!sprite)
-    {
-        return;
-    }
-    sprite->color = color;
-}
-
-void rgfx_sprite_set_texture(rgfx_sprite_t* sprite, unsigned int textureID)
-{
-    if (!sprite)
+    rgfx_sprite_t* sprite_ptr = rgfx_sprite_from_handle(sprite);
+    if (!sprite_ptr)
     {
         return;
     }
 
-    sprite->textureID  = textureID;
-    sprite->hasTexture = textureID != 0;
+    rtransform_set_position(sprite_ptr->transform, position);
 }
 
-void rgfx_sprite_get_position(rgfx_sprite_t* sprite, vec3 out_position)
+void rgfx_sprite_set_size(rgfx_sprite_handle sprite, vec2 size)
 {
-    if (!sprite || !out_position)
+    rgfx_sprite_t* sprite_ptr = rgfx_sprite_from_handle(sprite);
+    if (!sprite_ptr)
     {
         return;
     }
 
-    rtransform_get_world_position(sprite->transform, out_position);
+    vec3 new_scale = { size[0], size[1], sprite_ptr->size[2] };
+    rtransform_set_scale(sprite_ptr->transform, new_scale);
+    sprite_ptr->size[0] = size[0];
+    sprite_ptr->size[1] = size[1];
 }
 
-void rgfx_sprite_get_size(rgfx_sprite_t* sprite, vec2 out_size)
+void rgfx_sprite_set_color(rgfx_sprite_handle sprite, color color)
 {
-    if (!sprite || !out_size)
+    rgfx_sprite_t* sprite_ptr = rgfx_sprite_from_handle(sprite);
+    if (!sprite_ptr)
     {
         return;
     }
 
-    out_size[0] = sprite->size[0];
-    out_size[1] = sprite->size[1];
+    sprite_ptr->color = color;
 }
 
-color rgfx_sprite_get_color(rgfx_sprite_t* sprite)
+void rgfx_sprite_set_texture(rgfx_sprite_handle sprite, unsigned int textureID)
 {
-    if (!sprite)
+    rgfx_sprite_t* sprite_ptr = rgfx_sprite_from_handle(sprite);
+    if (!sprite_ptr)
+    {
+        return;
+    }
+
+    sprite_ptr->textureID  = textureID;
+    sprite_ptr->hasTexture = textureID != 0;
+}
+
+void rgfx_sprite_get_position(rgfx_sprite_handle sprite, vec3 out_position)
+{
+    if (!out_position)
+    {
+        return;
+    }
+
+    rgfx_sprite_t* sprite_ptr = rgfx_sprite_from_handle(sprite);
+    if (!sprite_ptr)
+    {
+        out_position[0] = out_position[1] = out_position[2] = 0.0f;
+        return;
+    }
+
+    rtransform_get_world_position(sprite_ptr->transform, out_position);
+}
+
+void rgfx_sprite_get_size(rgfx_sprite_handle sprite, vec2 out_size)
+{
+    rgfx_sprite_t* sprite_ptr = rgfx_sprite_from_handle(sprite);
+    if (!sprite_ptr || !out_size)
+    {
+        return;
+    }
+
+    out_size[0] = sprite_ptr->size[0];
+    out_size[1] = sprite_ptr->size[1];
+}
+
+color rgfx_sprite_get_color(rgfx_sprite_handle sprite)
+{
+    rgfx_sprite_t* sprite_ptr = rgfx_sprite_from_handle(sprite);
+    if (!sprite_ptr)
     {
         color c = { 0, 0, 0 };
         return c;
     }
-    return sprite->color;
+    return sprite_ptr->color;
 }
 
-unsigned int rgfx_sprite_get_texture_id(rgfx_sprite_t* sprite)
+unsigned int rgfx_sprite_get_texture_id(rgfx_sprite_handle sprite)
 {
-    return sprite ? sprite->textureID : 0;
+    rgfx_sprite_t* sprite_ptr = rgfx_sprite_from_handle(sprite);
+    return sprite_ptr ? sprite_ptr->textureID : 0;
 }
 
-void rgfx_sprite_set_uniform_float(rgfx_sprite_t* sprite, const char* name, float value)
+static void rgfx_sprite_set_uniform(rgfx_sprite_handle sprite, const char* name, const rgfx_uniform_t* new_uniform)
 {
-    if (!sprite || !name)
+    if (!name)
     {
         return;
     }
 
-    for (int i = 0; i < sprite->uniform_count; i++)
+    rgfx_sprite_t* sprite_ptr = rgfx_sprite_from_handle(sprite);
+    if (!sprite_ptr)
     {
-        if (strcmp(sprite->uniforms[i].name, name) == 0 && sprite->uniforms[i].type == RGFX_UNIFORM_FLOAT)
+        return;
+    }
+
+    for (int i = 0; i < sprite_ptr->uniform_count; ++i)
+    {
+        if (strcmp(sprite_ptr->uniforms[i].name, name) == 0 && sprite_ptr->uniforms[i].type == new_uniform->type)
         {
-            sprite->uniforms[i].uniform_float = value;
+            sprite_ptr->uniforms[i] = *new_uniform;
+            sprite_ptr->uniforms[i].name = name;
             return;
         }
     }
 
-    if (sprite->uniform_count >= RGFX_MAX_UNIFORMS)
+    if (sprite_ptr->uniform_count >= RGFX_MAX_UNIFORMS)
     {
         return;
     }
 
-    sprite->uniforms[sprite->uniform_count].name          = name;
-    sprite->uniforms[sprite->uniform_count].type          = RGFX_UNIFORM_FLOAT;
-    sprite->uniforms[sprite->uniform_count].uniform_float = value;
-    sprite->uniform_count++;
+    sprite_ptr->uniforms[sprite_ptr->uniform_count] = *new_uniform;
+    sprite_ptr->uniforms[sprite_ptr->uniform_count].name = name;
+    sprite_ptr->uniform_count++;
 }
 
-void rgfx_sprite_set_uniform_int(rgfx_sprite_t* sprite, const char* name, int value)
+void rgfx_sprite_set_uniform_float(rgfx_sprite_handle sprite, const char* name, float value)
 {
-    if (!sprite || !name)
-    {
-        return;
-    }
-
-    for (int i = 0; i < sprite->uniform_count; i++)
-    {
-        if (strcmp(sprite->uniforms[i].name, name) == 0 && sprite->uniforms[i].type == RGFX_UNIFORM_INT)
-        {
-            sprite->uniforms[i].uniform_int = value;
-            return;
-        }
-    }
-
-    if (sprite->uniform_count >= RGFX_MAX_UNIFORMS)
-    {
-        return;
-    }
-
-    sprite->uniforms[sprite->uniform_count].name        = name;
-    sprite->uniforms[sprite->uniform_count].type        = RGFX_UNIFORM_INT;
-    sprite->uniforms[sprite->uniform_count].uniform_int = value;
-    sprite->uniform_count++;
+    rgfx_uniform_t uniform = {
+        .name          = name,
+        .type          = RGFX_UNIFORM_FLOAT,
+        .uniform_float = value,
+    };
+    rgfx_sprite_set_uniform(sprite, name, &uniform);
 }
 
-void rgfx_sprite_set_uniform_vec2(rgfx_sprite_t* sprite, const char* name, vec2 value)
+void rgfx_sprite_set_uniform_int(rgfx_sprite_handle sprite, const char* name, int value)
 {
-    if (!sprite || !name)
-    {
-        return;
-    }
-
-    for (int i = 0; i < sprite->uniform_count; i++)
-    {
-        if (strcmp(sprite->uniforms[i].name, name) == 0 && sprite->uniforms[i].type == RGFX_UNIFORM_VEC2)
-        {
-            vec2_dup(sprite->uniforms[i].uniform_vec2, value);
-            return;
-        }
-    }
-
-    if (sprite->uniform_count >= RGFX_MAX_UNIFORMS)
-    {
-        return;
-    }
-
-    sprite->uniforms[sprite->uniform_count].name = name;
-    sprite->uniforms[sprite->uniform_count].type = RGFX_UNIFORM_VEC2;
-    vec2_dup(sprite->uniforms[sprite->uniform_count].uniform_vec2, value);
-    sprite->uniform_count++;
+    rgfx_uniform_t uniform = {
+        .name        = name,
+        .type        = RGFX_UNIFORM_INT,
+        .uniform_int = value,
+    };
+    rgfx_sprite_set_uniform(sprite, name, &uniform);
 }
 
-void rgfx_sprite_set_uniform_vec3(rgfx_sprite_t* sprite, const char* name, vec3 value)
+void rgfx_sprite_set_uniform_vec2(rgfx_sprite_handle sprite, const char* name, vec2 value)
 {
-    if (!sprite || !name)
+    rgfx_uniform_t uniform = {
+        .name = name,
+        .type = RGFX_UNIFORM_VEC2,
+    };
+    vec2_dup(uniform.uniform_vec2, value);
+    rgfx_sprite_set_uniform(sprite, name, &uniform);
+}
+
+void rgfx_sprite_set_uniform_vec3(rgfx_sprite_handle sprite, const char* name, vec3 value)
+{
+    rgfx_uniform_t uniform = {
+        .name = name,
+        .type = RGFX_UNIFORM_VEC3,
+    };
+    vec3_dup(uniform.uniform_vec3, value);
+    rgfx_sprite_set_uniform(sprite, name, &uniform);
+}
+
+void rgfx_sprite_set_uniform_vec4(rgfx_sprite_handle sprite, const char* name, vec4 value)
+{
+    rgfx_uniform_t uniform = {
+        .name = name,
+        .type = RGFX_UNIFORM_VEC4,
+    };
+    vec4_dup(uniform.uniform_vec4, value);
+    rgfx_sprite_set_uniform(sprite, name, &uniform);
+}
+
+rtransform_t* rgfx_sprite_get_transform(rgfx_sprite_handle sprite)
+{
+    rgfx_sprite_t* sprite_ptr = rgfx_sprite_from_handle(sprite);
+    return sprite_ptr ? sprite_ptr->transform : NULL;
+}
+
+void rgfx_sprite_set_parent(rgfx_sprite_handle child, rgfx_sprite_handle parent)
+{
+    rgfx_sprite_t* child_ptr = rgfx_sprite_from_handle(child);
+    if (!child_ptr)
     {
         return;
     }
 
-    for (int i = 0; i < sprite->uniform_count; i++)
+    rtransform_t* parent_transform = NULL;
+    if (parent != RGFX_INVALID_SPRITE_HANDLE)
     {
-        if (strcmp(sprite->uniforms[i].name, name) == 0 && sprite->uniforms[i].type == RGFX_UNIFORM_VEC3)
-        {
-            vec3_dup(sprite->uniforms[i].uniform_vec3, value);
-            return;
-        }
+        rgfx_sprite_t* parent_ptr = rgfx_sprite_from_handle(parent);
+        parent_transform = parent_ptr ? parent_ptr->transform : NULL;
     }
 
-    if (sprite->uniform_count >= RGFX_MAX_UNIFORMS)
-    {
-        return;
-    }
-
-    sprite->uniforms[sprite->uniform_count].name = name;
-    sprite->uniforms[sprite->uniform_count].type = RGFX_UNIFORM_VEC3;
-    vec3_dup(sprite->uniforms[sprite->uniform_count].uniform_vec3, value);
-    sprite->uniform_count++;
+    rtransform_set_parent(child_ptr->transform, parent_transform);
 }
 
-void rgfx_sprite_set_uniform_vec4(rgfx_sprite_t* sprite, const char* name, vec4 value)
+void rgfx_sprite_set_rotation(rgfx_sprite_handle sprite, float rotation)
 {
-    if (!sprite || !name)
-    {
-        return;
-    }
-
-    for (int i = 0; i < sprite->uniform_count; i++)
-    {
-        if (strcmp(sprite->uniforms[i].name, name) == 0 && sprite->uniforms[i].type == RGFX_UNIFORM_VEC4)
-        {
-            vec4_dup(sprite->uniforms[i].uniform_vec4, value);
-            return;
-        }
-    }
-
-    if (sprite->uniform_count >= RGFX_MAX_UNIFORMS)
-    {
-        return;
-    }
-
-    sprite->uniforms[sprite->uniform_count].name = name;
-    sprite->uniforms[sprite->uniform_count].type = RGFX_UNIFORM_VEC4;
-    vec4_dup(sprite->uniforms[sprite->uniform_count].uniform_vec4, value);
-    sprite->uniform_count++;
-}
-
-void rgfx_set_parent(void* child, void* parent)
-{
-    if (!child)
-    {
-        return;
-    }
-
-    rtransform_t* child_transform  = rgfx_get_transform(child);
-    rtransform_t* parent_transform = parent ? rgfx_get_transform(parent) : NULL;
-
-    if (child_transform)
-    {
-        rtransform_set_parent(child_transform, parent_transform);
-    }
-}
-
-rtransform_t* rgfx_get_transform(void* object)
-{
-    if (!object)
-    {
-        return NULL;
-    }
-
-    rgfx_sprite_t* sprite = (rgfx_sprite_t*)object;
-    if (sprite->type == RGFX_OBJECT_TYPE_SPRITE)
-    {
-        return sprite->transform;
-    }
-
-    rgfx_text_t* text = (rgfx_text_t*)object;
-    if (text->type == RGFX_OBJECT_TYPE_TEXT)
-    {
-        return text->transform;
-    }
-
-    return NULL;
-}
-
-rtransform_t* rtransform_get(void* object)
-{
-    return rgfx_get_transform(object);
-}
-
-void rgfx_sprite_set_rotation(rgfx_sprite_t* sprite, float rotation)
-{
-    if (!sprite)
+    rgfx_sprite_t* sprite_ptr = rgfx_sprite_from_handle(sprite);
+    if (!sprite_ptr)
     {
         return;
     }
 
     vec3 axis = { 0.0f, 0.0f, 1.0f };
-    rtransform_set_rotation_axis_angle(sprite->transform, axis, rotation);
+    rtransform_set_rotation_axis_angle(sprite_ptr->transform, axis, rotation);
 }
 
-void rgfx_sprite_get_world_position(rgfx_sprite_t* sprite, vec3 out_position)
+void rgfx_sprite_get_world_position(rgfx_sprite_handle sprite, vec3 out_position)
 {
-    if (!sprite || !out_position)
+    if (!out_position)
     {
         return;
     }
 
-    rtransform_get_world_position(sprite->transform, out_position);
-}
+    rgfx_sprite_t* sprite_ptr = rgfx_sprite_from_handle(sprite);
+    if (!sprite_ptr)
+    {
+        out_position[0] = out_position[1] = out_position[2] = 0.0f;
+        return;
+    }
 
+    rtransform_get_world_position(sprite_ptr->transform, out_position);
+}

@@ -4,12 +4,88 @@
 #include <stdio.h>
 #include <string.h>
 
+#define RGFX_MAX_SPRITES 512u
+#define RGFX_MAX_TEXTS   256u
+#define RGFX_HANDLE_INDEX_MASK 0xFFFFu
+#define RGFX_HANDLE_GENERATION_SHIFT 16u
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
 
-static rgfx_camera_t* g_active_camera         = NULL;
-static unsigned int   g_text_shader_program   = 0;
-static int            g_text_shader_refcount  = 0;
+typedef struct
+{
+    rgfx_sprite_t* object;
+    uint32_t       generation;
+} rgfx_sprite_slot_t;
+
+typedef struct
+{
+    rgfx_text_t* object;
+    uint32_t     generation;
+} rgfx_text_slot_t;
+
+static rgfx_camera_t* g_active_camera        = NULL;
+static unsigned int   g_text_shader_program  = 0;
+static int            g_text_shader_refcount = 0;
+
+static rgfx_sprite_slot_t g_sprite_slots[RGFX_MAX_SPRITES];
+static uint32_t           g_sprite_free_stack[RGFX_MAX_SPRITES];
+static uint32_t           g_sprite_free_top = 0;
+
+static rgfx_text_slot_t g_text_slots[RGFX_MAX_TEXTS];
+static uint32_t         g_text_free_stack[RGFX_MAX_TEXTS];
+static uint32_t         g_text_free_top = 0;
+
+static bool g_handle_pools_initialized = false;
+
+static void rgfx_initialize_handle_pools(void)
+{
+    if (g_handle_pools_initialized)
+    {
+        return;
+    }
+
+    for (uint32_t i = 0; i < RGFX_MAX_SPRITES; ++i)
+    {
+        g_sprite_slots[i].object     = NULL;
+        g_sprite_slots[i].generation = 1u;
+        g_sprite_free_stack[g_sprite_free_top++] = (RGFX_MAX_SPRITES - 1u) - i;
+    }
+
+    for (uint32_t i = 0; i < RGFX_MAX_TEXTS; ++i)
+    {
+        g_text_slots[i].object     = NULL;
+        g_text_slots[i].generation = 1u;
+        g_text_free_stack[g_text_free_top++] = (RGFX_MAX_TEXTS - 1u) - i;
+    }
+
+    g_handle_pools_initialized = true;
+}
+
+static inline uint32_t rgfx_handle_index(uint32_t handle)
+{
+    return (handle & RGFX_HANDLE_INDEX_MASK) - 1u;
+}
+
+static inline uint32_t rgfx_handle_generation(uint32_t handle)
+{
+    return handle >> RGFX_HANDLE_GENERATION_SHIFT;
+}
+
+static inline uint32_t rgfx_make_handle(uint32_t index, uint32_t generation)
+{
+    return ((generation & RGFX_HANDLE_INDEX_MASK) << RGFX_HANDLE_GENERATION_SHIFT) | (index + 1u);
+}
+
+static inline uint32_t rgfx_next_generation(uint32_t generation)
+{
+    generation = (generation + 1u) & RGFX_HANDLE_INDEX_MASK;
+    if (generation == 0u)
+    {
+        generation = 1u;
+    }
+    return generation;
+}
 
 #if defined(__EMSCRIPTEN__)
 static const char* const RGFX_DEFAULT_SPRITE_VERTEX_SHADER =
@@ -169,6 +245,164 @@ const char* rgfx_internal_default_text_vertex_shader(void)
 const char* rgfx_internal_default_text_fragment_shader(void)
 {
     return RGFX_DEFAULT_TEXT_FRAGMENT_SHADER;
+}
+
+rgfx_sprite_handle rgfx_internal_sprite_register(rgfx_sprite_t* sprite)
+{
+    if (!sprite)
+    {
+        return RGFX_INVALID_SPRITE_HANDLE;
+    }
+
+    rgfx_initialize_handle_pools();
+
+    if (g_sprite_free_top == 0)
+    {
+        rlog_error("rgfx: sprite pool exhausted (max %u)", (unsigned)RGFX_MAX_SPRITES);
+        return RGFX_INVALID_SPRITE_HANDLE;
+    }
+
+    uint32_t index = g_sprite_free_stack[--g_sprite_free_top];
+    rgfx_sprite_slot_t* slot = &g_sprite_slots[index];
+    slot->object = sprite;
+
+    uint32_t handle = rgfx_make_handle(index, slot->generation);
+    sprite->handle = handle;
+    return handle;
+}
+
+static rgfx_sprite_slot_t* rgfx_internal_sprite_slot(rgfx_sprite_handle handle, uint32_t* out_index)
+{
+    if (handle == RGFX_INVALID_SPRITE_HANDLE)
+    {
+        return NULL;
+    }
+
+    uint32_t index = rgfx_handle_index(handle);
+    if (index >= RGFX_MAX_SPRITES)
+    {
+        return NULL;
+    }
+
+    rgfx_sprite_slot_t* slot = &g_sprite_slots[index];
+    if (slot->object == NULL)
+    {
+        return NULL;
+    }
+
+    uint32_t generation = rgfx_handle_generation(handle);
+    if (slot->generation != generation)
+    {
+        return NULL;
+    }
+
+    if (out_index)
+    {
+        *out_index = index;
+    }
+
+    return slot;
+}
+
+rgfx_sprite_t* rgfx_internal_sprite_resolve(rgfx_sprite_handle handle)
+{
+    rgfx_initialize_handle_pools();
+
+    rgfx_sprite_slot_t* slot = rgfx_internal_sprite_slot(handle, NULL);
+    return slot ? slot->object : NULL;
+}
+
+void rgfx_internal_sprite_unregister(rgfx_sprite_handle handle)
+{
+    uint32_t index = 0;
+    rgfx_sprite_slot_t* slot = rgfx_internal_sprite_slot(handle, &index);
+    if (!slot)
+    {
+        return;
+    }
+
+    slot->object     = NULL;
+    slot->generation = rgfx_next_generation(slot->generation);
+    g_sprite_free_stack[g_sprite_free_top++] = index;
+}
+
+rgfx_text_handle rgfx_internal_text_register(rgfx_text_t* text)
+{
+    if (!text)
+    {
+        return RGFX_INVALID_TEXT_HANDLE;
+    }
+
+    rgfx_initialize_handle_pools();
+
+    if (g_text_free_top == 0)
+    {
+        rlog_error("rgfx: text pool exhausted (max %u)", (unsigned)RGFX_MAX_TEXTS);
+        return RGFX_INVALID_TEXT_HANDLE;
+    }
+
+    uint32_t index = g_text_free_stack[--g_text_free_top];
+    rgfx_text_slot_t* slot = &g_text_slots[index];
+    slot->object = text;
+
+    uint32_t handle = rgfx_make_handle(index, slot->generation);
+    text->handle = handle;
+    return handle;
+}
+
+static rgfx_text_slot_t* rgfx_internal_text_slot(rgfx_text_handle handle, uint32_t* out_index)
+{
+    if (handle == RGFX_INVALID_TEXT_HANDLE)
+    {
+        return NULL;
+    }
+
+    uint32_t index = rgfx_handle_index(handle);
+    if (index >= RGFX_MAX_TEXTS)
+    {
+        return NULL;
+    }
+
+    rgfx_text_slot_t* slot = &g_text_slots[index];
+    if (slot->object == NULL)
+    {
+        return NULL;
+    }
+
+    uint32_t generation = rgfx_handle_generation(handle);
+    if (slot->generation != generation)
+    {
+        return NULL;
+    }
+
+    if (out_index)
+    {
+        *out_index = index;
+    }
+
+    return slot;
+}
+
+rgfx_text_t* rgfx_internal_text_resolve(rgfx_text_handle handle)
+{
+    rgfx_initialize_handle_pools();
+
+    rgfx_text_slot_t* slot = rgfx_internal_text_slot(handle, NULL);
+    return slot ? slot->object : NULL;
+}
+
+void rgfx_internal_text_unregister(rgfx_text_handle handle)
+{
+    uint32_t index = 0;
+    rgfx_text_slot_t* slot = rgfx_internal_text_slot(handle, &index);
+    if (!slot)
+    {
+        return;
+    }
+
+    slot->object     = NULL;
+    slot->generation = rgfx_next_generation(slot->generation);
+    g_text_free_stack[g_text_free_top++] = index;
 }
 
 static unsigned int rgfx_compile_shader(unsigned int type, const char* source)
@@ -334,6 +568,8 @@ bool rgfx_init(void)
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
+    rgfx_initialize_handle_pools();
+
     return true;
 }
 
@@ -347,6 +583,10 @@ void rgfx_shutdown(void)
     }
 
     g_active_camera = NULL;
+
+    g_sprite_free_top         = 0;
+    g_text_free_top           = 0;
+    g_handle_pools_initialized = false;
 }
 
 void rgfx_clear(float r, float g, float b)
