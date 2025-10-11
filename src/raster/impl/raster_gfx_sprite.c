@@ -131,8 +131,16 @@ rgfx_sprite_handle rgfx_sprite_create(const rgfx_sprite_desc_t* desc)
 
     sprite->shaderProgram = rgfx_create_shader_program(vertex_ptr, fragment_ptr);
 
-    free(vertex_source);
-    free(fragment_source);
+    if (vertex_source)
+    {
+        free(vertex_source);
+        vertex_source = NULL;
+    }
+    if (fragment_source)
+    {
+        free(fragment_source);
+        fragment_source = NULL;
+    }
 
     if (sprite->shaderProgram == 0)
     {
